@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.9](https://github.com/towry/rust-mcp-filesystem/compare/v0.3.8...v0.3.9) (2025-11-04)
+
+
+### 🐛 Bug Fixes
+
+* **tools:** Remove zip tool ([5416c89](https://github.com/towry/rust-mcp-filesystem/commit/5416c89d54db61c45046bb6ac38243909c6a4395))
+
 ## [0.3.8](https://github.com/towry/rust-mcp-filesystem/compare/v0.3.8...v0.3.8) (2025-11-04)
 
 
