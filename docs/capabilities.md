@@ -1,7 +1,7 @@
 # Capabilities
 
 <!-- mcp-discovery-render -->
-## rust-mcp-filesystem 0.3.9
+## rust-mcp-filesystem 0.3.10
 | 🟢 Tools (20) | <span style="opacity:0.6">🔴 Prompts</span> | <span style="opacity:0.6">🔴 Resources</span> | <span style="opacity:0.6">🔴 Logging</span> | <span style="opacity:0.6">🔴 Completions</span> | <span style="opacity:0.6">🔴 Experimental</span> |
 | --- | --- | --- | --- | --- | --- |
 
@@ -237,6 +237,7 @@
                     <li> <code>excludePatterns</code> : string [ ]<br /></li>
                     <li> <code>fileExtensions</code> : string [ ]<br /></li>
                     <li> <code>language</code> : string<br /></li>
+                    <li> <code>maxLines</code> : integer<br /></li>
                     <li> <code>path</code> : string<br /></li>
                     <li> <code>pattern</code> : string<br /></li>
                 </ul>
