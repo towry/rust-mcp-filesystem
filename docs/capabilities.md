@@ -1,11 +1,11 @@
 # Capabilities
 
 <!-- mcp-discovery-render -->
-## rust-mcp-filesystem 0.3.8
-| 🟢 Tools (24) | <span style="opacity:0.6">🔴 Prompts</span> | <span style="opacity:0.6">🔴 Resources</span> | <span style="opacity:0.6">🔴 Logging</span> | <span style="opacity:0.6">🔴 Completions</span> | <span style="opacity:0.6">🔴 Experimental</span> |
+## rust-mcp-filesystem 0.3.9
+| 🟢 Tools (20) | <span style="opacity:0.6">🔴 Prompts</span> | <span style="opacity:0.6">🔴 Resources</span> | <span style="opacity:0.6">🔴 Logging</span> | <span style="opacity:0.6">🔴 Completions</span> | <span style="opacity:0.6">🔴 Experimental</span> |
 | --- | --- | --- | --- | --- | --- |
 
-## 🛠️ Tools (24)
+## 🛠️ Tools (20)
 
 <table style="text-align: left;">
 <thead>
@@ -115,19 +115,6 @@
         <tr>
             <td>8.</td>
             <td>
-                <code><b>head_file</b></code>
-            </td>
-            <td>Reads and returns the first N lines of a text file.This is useful for quickly previewing file contents without loading the entire file into memory.If the file has fewer than N lines, the entire file will be returned.Only works within allowed directories.</td>
-            <td>
-                <ul>
-                    <li> <code>lines</code> : integer<br /></li>
-                    <li> <code>path</code> : string<br /></li>
-                </ul>
-            </td>
-        </tr>
-        <tr>
-            <td>9.</td>
-            <td>
                 <code><b>list_allowed_directories</b></code>
             </td>
             <td>Returns a list of directories that the server has permission to access Subdirectories within these allowed directories are also accessible. Use this to identify which directories and their nested paths are available before attempting to access files.</td>
@@ -137,7 +124,7 @@
             </td>
         </tr>
         <tr>
-            <td>10.</td>
+            <td>9.</td>
             <td>
                 <code><b>list_directory</b></code>
             </td>
@@ -149,7 +136,7 @@
             </td>
         </tr>
         <tr>
-            <td>11.</td>
+            <td>10.</td>
             <td>
                 <code><b>list_directory_with_sizes</b></code>
             </td>
@@ -161,7 +148,7 @@
             </td>
         </tr>
         <tr>
-            <td>12.</td>
+            <td>11.</td>
             <td>
                 <code><b>move_file</b></code>
             </td>
@@ -174,13 +161,14 @@
             </td>
         </tr>
         <tr>
-            <td>13.</td>
+            <td>12.</td>
             <td>
                 <code><b>read_file_lines</b></code>
             </td>
-            <td>Reads lines from a text file starting at a specified line offset (0-based) and continues for the specified number of lines if a limit is provided.This function skips the first <code>offset</code> lines and then reads up to <code>limit</code> lines if specified, or reads until the end of the file otherwise.It's useful for partial reads, pagination, or previewing sections of large text files.Only works within allowed directories.</td>
+            <td>Reads lines from a text file with flexible positioning options.By default, reads from the beginning: skips <code>offset</code> lines (0-based) and then reads up to <code>limit</code> lines if specified, or reads until EOF otherwise.When <code>from_end</code> is true, reads from the file's end: <code>offset</code> lines are skipped from the end, and <code>limit</code> lines are read backwards (output preserves original order).Examples: offset=0,limit=10 reads first 10 lines; from_end=true,limit=10 reads last 10 lines; offset=5,limit=20 reads lines 6-25.Useful for partial reads, pagination, log tailing, or previewing sections of large text files.Only works within allowed directories.</td>
             <td>
                 <ul>
+                    <li> <code>from_end</code> : boolean<br /></li>
                     <li> <code>limit</code> : integer<br /></li>
                     <li> <code>offset</code> : integer<br /></li>
                     <li> <code>path</code> : string<br /></li>
@@ -188,7 +176,7 @@
             </td>
         </tr>
         <tr>
-            <td>14.</td>
+            <td>13.</td>
             <td>
                 <code><b>read_media_file</b></code>
             </td>
@@ -201,7 +189,7 @@
             </td>
         </tr>
         <tr>
-            <td>15.</td>
+            <td>14.</td>
             <td>
                 <code><b>read_multiple_media_files</b></code>
             </td>
@@ -214,7 +202,7 @@
             </td>
         </tr>
         <tr>
-            <td>16.</td>
+            <td>15.</td>
             <td>
                 <code><b>read_multiple_text_files</b></code>
             </td>
@@ -226,7 +214,7 @@
             </td>
         </tr>
         <tr>
-            <td>17.</td>
+            <td>16.</td>
             <td>
                 <code><b>read_text_file</b></code>
             </td>
@@ -234,6 +222,23 @@
             <td>
                 <ul>
                     <li> <code>path</code> : string<br /></li>
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td>17.</td>
+            <td>
+                <code><b>search_code_ast</b></code>
+            </td>
+            <td>Performs structural code search using Abstract Syntax Tree (AST) pattern matching. Unlike text search, this matches code structure, not just text. Write patterns like ordinary code using $UPPERCASE as wildcards to match any AST node.<br/><br/>Examples:<br/>- Pattern: 'function $NAME() {}' matches all no-argument functions<br/>- Pattern: 'if ($COND) { $BODY }' matches all if statements<br/>- Pattern: 'const $VAR = $VALUE' matches all const declarations<br/>- Pattern: 'import { $ITEMS } from "$MODULE"' matches named imports<br/><br/>Supported languages: TypeScript, JavaScript, Rust, Python, Go, Java, C/C++, and more.<br/>Use <code>fileExtensions</code> to filter files (e.g., ["ts", "tsx"] for TypeScript files).</td>
+            <td>
+                <ul>
+                    <li> <code>astPattern</code> : string<br /></li>
+                    <li> <code>excludePatterns</code> : string [ ]<br /></li>
+                    <li> <code>fileExtensions</code> : string [ ]<br /></li>
+                    <li> <code>language</code> : string<br /></li>
+                    <li> <code>path</code> : string<br /></li>
+                    <li> <code>pattern</code> : string<br /></li>
                 </ul>
             </td>
         </tr>
@@ -246,6 +251,7 @@
             <td>
                 <ul>
                     <li> <code>excludePatterns</code> : string [ ]<br /></li>
+                    <li> <code>fileExtensions</code> : string [ ]<br /></li>
                     <li> <code>max_bytes</code> : integer<br /></li>
                     <li> <code>min_bytes</code> : integer<br /></li>
                     <li> <code>path</code> : string<br /></li>
@@ -274,32 +280,6 @@
         <tr>
             <td>20.</td>
             <td>
-                <code><b>tail_file</b></code>
-            </td>
-            <td>Reads and returns the last N lines of a text file.This is useful for quickly previewing file contents without loading the entire file into memory.If the file has fewer than N lines, the entire file will be returned.Only works within allowed directories.</td>
-            <td>
-                <ul>
-                    <li> <code>lines</code> : integer<br /></li>
-                    <li> <code>path</code> : string<br /></li>
-                </ul>
-            </td>
-        </tr>
-        <tr>
-            <td>21.</td>
-            <td>
-                <code><b>unzip_file</b></code>
-            </td>
-            <td>Extracts the contents of a ZIP archive to a specified target directory.<br/>It takes a source ZIP file path and a target extraction directory.<br/>The tool decompresses all files and directories stored in the ZIP, recreating their structure in the target location.<br/>Both the source ZIP file and the target directory should reside within allowed directories.</td>
-            <td>
-                <ul>
-                    <li> <code>target_path</code> : string<br /></li>
-                    <li> <code>zip_file</code> : string<br /></li>
-                </ul>
-            </td>
-        </tr>
-        <tr>
-            <td>22.</td>
-            <td>
                 <code><b>write_file</b></code>
             </td>
             <td>Create a new file or completely overwrite an existing file with new content. Use with caution as it will overwrite existing files without warning. Handles text content with proper encoding. Only works within allowed directories.</td>
@@ -307,33 +287,6 @@
                 <ul>
                     <li> <code>content</code> : string<br /></li>
                     <li> <code>path</code> : string<br /></li>
-                </ul>
-            </td>
-        </tr>
-        <tr>
-            <td>23.</td>
-            <td>
-                <code><b>zip_directory</b></code>
-            </td>
-            <td>Creates a ZIP archive by compressing a directory , including files and subdirectories matching a specified glob pattern.<br/>It takes a path to the folder and a glob pattern to identify files to compress and a target path for the resulting ZIP file.<br/>Both the source directory and the target ZIP file should reside within allowed directories.</td>
-            <td>
-                <ul>
-                    <li> <code>input_directory</code> : string<br /></li>
-                    <li> <code>pattern</code> : string<br /></li>
-                    <li> <code>target_zip_file</code> : string<br /></li>
-                </ul>
-            </td>
-        </tr>
-        <tr>
-            <td>24.</td>
-            <td>
-                <code><b>zip_files</b></code>
-            </td>
-            <td>Creates a ZIP archive by compressing files. It takes a list of files to compress and a target path for the resulting ZIP file. Both the source files and the target ZIP file should reside within allowed directories.</td>
-            <td>
-                <ul>
-                    <li> <code>input_files</code> : string [ ]<br /></li>
-                    <li> <code>target_zip_file</code> : string<br /></li>
                 </ul>
             </td>
         </tr>
