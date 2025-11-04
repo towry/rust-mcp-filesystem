@@ -10,8 +10,8 @@ use crate::{
 };
 use futures::{StreamExt, stream};
 use std::fs::{self};
-use std::time::SystemTime;
 use std::path::Path;
+use std::time::SystemTime;
 use tokio::{
     fs::File,
     io::{AsyncBufReadExt, BufReader},
@@ -77,7 +77,9 @@ impl FileSystemService {
                 }
 
                 // Determine how many lines to read from end
-                let lines_to_read = limit.unwrap_or(all_lines.len() - offset).min(all_lines.len() - offset);
+                let lines_to_read = limit
+                    .unwrap_or(all_lines.len() - offset)
+                    .min(all_lines.len() - offset);
 
                 // Get the slice of lines we need (from end)
                 let start_idx = all_lines.len() - offset - lines_to_read;

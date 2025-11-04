@@ -176,7 +176,7 @@ impl FileSystemService {
                 root_path,
                 "**/*".to_string(),
                 exclude_patterns.unwrap_or_default(),
-                None,  // No file extension filter
+                None, // No file extension filter
                 None,
                 None,
             )

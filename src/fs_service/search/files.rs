@@ -1,8 +1,11 @@
 use crate::{
     error::ServiceResult,
-    fs_service::{FileSystemService, utils::filesize_in_range},
+    fs_service::{
+        FileSystemService,
+        search::glob_utils::{compile_exclude_glob, compile_single_glob},
+        utils::filesize_in_range,
+    },
 };
-use glob_match::glob_match;
 use ignore::WalkBuilder;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use sha2::{Digest, Sha256};
@@ -32,7 +35,14 @@ impl FileSystemService {
         max_bytes: Option<u64>,
     ) -> ServiceResult<Vec<ignore::DirEntry>> {
         let result = self
-            .search_files_iter(root_path, pattern, exclude_patterns, file_extensions, min_bytes, max_bytes)
+            .search_files_iter(
+                root_path,
+                pattern,
+                exclude_patterns,
+                file_extensions,
+                min_bytes,
+                max_bytes,
+            )
             .await?;
         Ok(result.collect::<Vec<ignore::DirEntry>>())
     }
@@ -61,24 +71,24 @@ impl FileSystemService {
         let allowed_directories = self.allowed_directories().await;
         let valid_path = self.validate_path(root_path, allowed_directories)?;
 
-        let updated_pattern = if pattern.contains('*') {
-            pattern.to_lowercase()
-        } else {
-            format!("**/*{}*", &pattern.to_lowercase())
-        };
-        let glob_pattern = updated_pattern;
+        let mut normalized_pattern = pattern;
+        if !normalized_pattern.contains('*') && !normalized_pattern.contains('?') {
+            normalized_pattern = format!("**/*{}*", normalized_pattern);
+        }
+        let include_glob = compile_single_glob(&normalized_pattern, "*", true)?;
+        let exclude_glob = compile_exclude_glob(Some(&exclude_patterns), false)?;
 
         let valid_path_for_filter = valid_path.clone();
 
         let result = WalkBuilder::new(valid_path)
-            .follow_links(false)  // Disable follow_links to prevent infinite loops
-            .max_depth(Some(20))  // Limit maximum depth to prevent excessive traversal
-            .git_ignore(true)     // Respect .gitignore files (default: true)
-            .git_global(true)     // Respect global gitignore (default: true)
-            .git_exclude(true)    // Respect .git/info/exclude (default: true)
-            .ignore(true)         // Respect .ignore files (default: true)
-            .hidden(true)         // Skip hidden files (default: true)
-            .parents(true)        // Read ignore files from parent directories (default: true)
+            .follow_links(false) // Disable follow_links to prevent infinite loops
+            .max_depth(Some(20)) // Limit maximum depth to prevent excessive traversal
+            .git_ignore(true) // Respect .gitignore files (default: true)
+            .git_global(true) // Respect global gitignore (default: true)
+            .git_exclude(true) // Respect .git/info/exclude (default: true)
+            .ignore(true) // Respect .ignore files (default: true)
+            .hidden(true) // Skip hidden files (default: true)
+            .parents(true) // Read ignore files from parent directories (default: true)
             .build()
             .filter_map(|v| v.ok())
             .filter(move |entry| {
@@ -90,26 +100,20 @@ impl FileSystemService {
                 }
 
                 // Apply custom exclude patterns if provided
-                if !exclude_patterns.is_empty() {
+                if let Some(ref excludes) = exclude_glob {
                     let relative_path = path.strip_prefix(&valid_path_for_filter).unwrap_or(path);
-                    let should_exclude = exclude_patterns.iter().any(|pattern| {
-                        let glob_pattern = if pattern.contains('*') {
-                            pattern.strip_prefix("/").unwrap_or(pattern).to_owned()
-                        } else {
-                            format!("*{pattern}*")
-                        };
-                        glob_match(&glob_pattern, relative_path.to_str().unwrap_or(""))
-                    });
-                    if should_exclude {
+                    if excludes.is_match(relative_path) {
                         return false;
                     }
                 }
 
                 // Check if the name matches the pattern
-                if !glob_match(
-                    &glob_pattern,
-                    &entry.file_name().to_str().unwrap_or("").to_lowercase(),
-                ) {
+                let filename = match entry.file_name().to_str() {
+                    Some(name) => name,
+                    None => return false,
+                };
+
+                if !include_glob.is_match(filename) {
                     return false;
                 }
 
@@ -137,7 +141,8 @@ impl FileSystemService {
                 }
 
                 true
-            });        Ok(result)
+            });
+        Ok(result)
     }
 
     /// Finds groups of duplicate files within the given root path.
@@ -165,7 +170,7 @@ impl FileSystemService {
                 &valid_path,
                 pattern.unwrap_or("**/*".to_string()),
                 exclude_patterns.unwrap_or_default(),
-                None,  // No file extension filter
+                None, // No file extension filter
                 min_bytes,
                 max_bytes,
             )

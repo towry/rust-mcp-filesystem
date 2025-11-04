@@ -64,10 +64,7 @@ impl SearchCodeAst {
                 let _ = writeln!(
                     output,
                     "  {}:{} (bytes {}-{}):",
-                    m.line_number,
-                    m.column,
-                    m.byte_range.0,
-                    m.byte_range.1
+                    m.line_number, m.column, m.byte_range.0, m.byte_range.1
                 );
 
                 // Handle line limiting
@@ -125,7 +122,9 @@ impl SearchCodeAst {
             Ok(results) => {
                 if results.is_empty() {
                     return Ok(CallToolResult::with_error(CallToolError::new(
-                        ServiceError::FromString("No AST pattern matches found in the files.".into()),
+                        ServiceError::FromString(
+                            "No AST pattern matches found in the files.".into(),
+                        ),
                     )));
                 }
                 Ok(CallToolResult::text_content(vec![TextContent::from(

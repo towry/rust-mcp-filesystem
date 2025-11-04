@@ -1,17 +1,20 @@
 use crate::{
     error::ServiceResult,
-    fs_service::{FileSystemService, utils::escape_regex},
+    fs_service::{
+        FileSystemService,
+        search::glob_utils::{compile_exclude_glob, compile_single_glob},
+        utils::escape_regex,
+    },
 };
-use glob_match::glob_match;
 use grep::{
     matcher::{Match, Matcher},
-    regex::RegexMatcherBuilder,
+    regex::{RegexMatcher, RegexMatcherBuilder},
     searcher::{BinaryDetection, Searcher, sinks::UTF8},
 };
 use ignore::WalkBuilder;
 use std::{
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{Arc, mpsc},
 };
 
 const SNIPPET_MAX_LENGTH: usize = 200;
@@ -189,6 +192,23 @@ impl FileSystemService {
         // Validate root path once
         self.validate_path(root_path, self.allowed_directories().await)?;
 
+        let include_glob = Arc::new(compile_single_glob(pattern, "*", false)?);
+        let exclude_glob = compile_exclude_glob(exclude_patterns.as_deref(), false)?;
+        let exclude_glob = exclude_glob.map(Arc::new);
+
+        let search_query = if is_regex {
+            query.to_string()
+        } else {
+            escape_regex(query)
+        };
+
+        let matcher = RegexMatcherBuilder::new()
+            .case_insensitive(true)
+            .build(&search_query)?;
+        let matcher = Arc::new(matcher);
+
+        let (tx, rx) = mpsc::channel::<FileSearchResult>();
+
         // Build parallel walker with ignore crate
         let mut builder = WalkBuilder::new(root_path);
         builder
@@ -199,25 +219,12 @@ impl FileSystemService {
             .git_exclude(true)
             .ignore(true);
 
-        // Shared results vector protected by mutex
-        let results = Arc::new(Mutex::new(Vec::new()));
-        let results_clone = Arc::clone(&results);
-
-        // Clone data for the parallel closure
-        let file_pattern = pattern.to_string();
-        let search_query = if is_regex {
-            query.to_string()
-        } else {
-            escape_regex(query)
-        };
-        let exclude_patterns_clone = exclude_patterns.clone();
-
         // Use build_parallel for concurrent directory traversal + content search
         builder.build_parallel().run(|| {
-            let results = Arc::clone(&results_clone);
-            let file_pattern = file_pattern.clone();
-            let search_query = search_query.clone();
-            let exclude_patterns = exclude_patterns_clone.clone();
+            let tx = tx.clone();
+            let include_glob = Arc::clone(&include_glob);
+            let exclude_glob = exclude_glob.clone();
+            let matcher = Arc::clone(&matcher);
 
             Box::new(move |entry_result| {
                 use ignore::WalkState;
@@ -240,17 +247,17 @@ impl FileSystemService {
                 let path = entry.path();
 
                 // Apply file pattern filter - match against filename only, not full path
-                let filename = path.file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("");
-                if !glob_match(&file_pattern, filename) {
+                let filename = match path.file_name().and_then(|n| n.to_str()) {
+                    Some(name) => name,
+                    None => return WalkState::Continue,
+                };
+                if !include_glob.is_match(filename) {
                     return WalkState::Continue;
                 }
 
                 // Apply exclude patterns
-                if let Some(ref excludes) = exclude_patterns {
-                    let path_str = path.to_string_lossy();
-                    if excludes.iter().any(|pattern| glob_match(pattern, &path_str)) {
+                if let Some(ref excludes) = exclude_glob {
+                    if excludes.is_match(path) {
                         return WalkState::Continue;
                     }
                 }
@@ -273,13 +280,9 @@ impl FileSystemService {
                 }
 
                 // Perform content search on this file
-                if let Ok(file_result) = Self::search_file_content_static(
-                    &search_query,
-                    path,
-                ) {
+                if let Ok(file_result) = Self::search_file_content_static(matcher.as_ref(), path) {
                     if let Some(file_result) = file_result {
-                        let mut results = results.lock().unwrap();
-                        results.push(file_result);
+                        let _ = tx.send(file_result);
                     }
                 }
 
@@ -287,11 +290,9 @@ impl FileSystemService {
             })
         });
 
-        // Extract results from mutex
-        let results = match Arc::try_unwrap(results) {
-            Ok(mutex) => mutex.into_inner().unwrap(),
-            Err(arc) => arc.lock().unwrap().clone(),
-        };
+        drop(tx);
+
+        let results: Vec<FileSearchResult> = rx.iter().collect();
 
         Ok(results)
     }
@@ -299,24 +300,19 @@ impl FileSystemService {
     /// Static helper method for searching file content (used in parallel walker).
     /// Does not depend on self, enabling use in parallel closures.
     fn search_file_content_static(
-        query: &str,
+        matcher: &RegexMatcher,
         file_path: &Path,
     ) -> ServiceResult<Option<FileSearchResult>> {
-        let matcher = RegexMatcherBuilder::new()
-            .case_insensitive(true)
-            .build(query)?;
-
         let mut searcher = Searcher::new();
         searcher.set_binary_detection(BinaryDetection::quit(b'\x00'));
 
         let mut matches = Vec::new();
-        let matcher_ref = &matcher;
 
         searcher.search_path(
-            matcher_ref,
+            matcher,
             file_path,
             UTF8(|line_number, line| {
-                if let Ok(Some(m)) = matcher_ref.find(line.as_bytes()) {
+                if let Ok(Some(m)) = matcher.find(line.as_bytes()) {
                     let start_pos = m.start();
                     let line_text = Self::extract_snippet_static(
                         line,

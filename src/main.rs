@@ -10,7 +10,8 @@ async fn main() {
         println!("Available MCP Filesystem Tools:\n");
         let tools = FileSystemTools::tools();
         for (idx, tool) in tools.iter().enumerate() {
-            println!("{}. {} - {}",
+            println!(
+                "{}. {} - {}",
                 idx + 1,
                 tool.name,
                 tool.description.as_deref().unwrap_or("No description")

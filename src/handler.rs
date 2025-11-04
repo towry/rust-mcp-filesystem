@@ -239,9 +239,7 @@ impl ServerHandler for FileSystemHandler {
         if let Some(enabled) = &self.enabled_tools {
             let tool_name = tool_params.tool_name();
             if !enabled.contains(&tool_name.to_lowercase()) {
-                return Err(CallToolError::new(ServiceError::ToolNotEnabled(
-                    tool_name,
-                )));
+                return Err(CallToolError::new(ServiceError::ToolNotEnabled(tool_name)));
             }
         }
 

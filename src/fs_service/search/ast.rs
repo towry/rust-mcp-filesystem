@@ -1,17 +1,19 @@
 use crate::{
     error::{ServiceError, ServiceResult},
-    fs_service::FileSystemService,
+    fs_service::{
+        FileSystemService,
+        search::glob_utils::{compile_exclude_glob, compile_single_glob},
+    },
 };
 use ast_grep_core::Pattern;
-use ast_grep_language::{SupportLang, LanguageExt};
-use globset::{Glob, GlobSet, GlobSetBuilder};
+use ast_grep_language::{LanguageExt, SupportLang};
 use ignore::WalkBuilder;
 use std::{
     path::{Path, PathBuf},
     sync::{
+        Arc,
         atomic::{AtomicUsize, Ordering},
         mpsc,
-        Arc,
     },
 };
 
@@ -77,7 +79,8 @@ impl FileSystemService {
         let pattern = Pattern::new(pattern, lang);
 
         // Find all matches
-        let matches: Vec<_> = root.root()
+        let matches: Vec<_> = root
+            .root()
             .find_all(pattern)
             .map(|node_match| {
                 let node = node_match.get_node();
@@ -106,8 +109,6 @@ impl FileSystemService {
     /// Validates an AST pattern by attempting to parse it.
     /// Returns an error if the pattern is invalid.
     fn validate_pattern(&self, pattern: &str, lang: SupportLang) -> ServiceResult<()> {
-        use crate::error::ServiceError;
-
         // Try to parse the pattern as code
         let root = lang.ast_grep(pattern);
 
@@ -134,9 +135,9 @@ impl FileSystemService {
         }
 
         Ok(())
-    }    /// Parse language string to ast-grep Language
+    }
+    /// Parse language string to ast-grep Language
     fn parse_language(&self, language: &str) -> ServiceResult<SupportLang> {
-        use crate::error::ServiceError;
         let lang = match language.to_lowercase().as_str() {
             "typescript" | "ts" => SupportLang::TypeScript,
             "tsx" => SupportLang::Tsx,
@@ -164,7 +165,12 @@ impl FileSystemService {
             "solidity" | "sol" => SupportLang::Solidity,
             "nix" => SupportLang::Nix,
             "hcl" | "terraform" => SupportLang::Hcl,
-            _ => return Err(ServiceError::FromString(format!("Unsupported language: {}", language))),
+            _ => {
+                return Err(ServiceError::FromString(format!(
+                    "Unsupported language: {}",
+                    language
+                )));
+            }
         };
         Ok(lang)
     }
@@ -210,15 +216,16 @@ impl FileSystemService {
         self.validate_path(root_path, self.allowed_directories().await)?;
 
         // Prepare glob filters up-front to avoid recompilation per file
-        let include_glob = compile_include_glob(file_pattern)?;
-        let include_glob = Arc::new(include_glob);
+        let include_glob = Arc::new(compile_single_glob(file_pattern, "**/*", false)?);
 
-        let exclude_glob = compile_exclude_glob(exclude_patterns.as_deref())?;
+        let exclude_glob = compile_exclude_glob(exclude_patterns.as_deref(), false)?;
         let exclude_glob = exclude_glob.map(Arc::new);
 
-        let extension_filters = file_extensions
-            .as_ref()
-            .map(|exts| exts.iter().map(|ext| ext.to_ascii_lowercase()).collect::<Vec<_>>());
+        let extension_filters = file_extensions.as_ref().map(|exts| {
+            exts.iter()
+                .map(|ext| ext.to_ascii_lowercase())
+                .collect::<Vec<_>>()
+        });
         let extension_filters = extension_filters.map(Arc::new);
 
         // Build walker with ignore crate
@@ -318,7 +325,8 @@ impl FileSystemService {
                     if !content.is_empty() {
                         let root = lang.ast_grep(&content);
                         // Use reference instead of clone (performance fix)
-                        let matches: Vec<_> = root.root()
+                        let matches: Vec<_> = root
+                            .root()
                             .find_all(pattern_obj.as_ref())
                             .map(|node_match| {
                                 let node = node_match.get_node();
@@ -362,79 +370,13 @@ impl FileSystemService {
                 "Warning: AST search hit maximum file limit of {}. Results may be incomplete.",
                 MAX_FILES_LIMIT
             );
-            eprintln!("Consider narrowing your search with more specific patterns or exclude patterns.");
-        } else if final_count >= MAX_FILES_WARNING {
             eprintln!(
-                "Info: Searched {} files.",
-                final_count
+                "Consider narrowing your search with more specific patterns or exclude patterns."
             );
+        } else if final_count >= MAX_FILES_WARNING {
+            eprintln!("Info: Searched {} files.", final_count);
         }
 
         Ok(results)
     }
-}
-
-fn compile_include_glob(pattern: &str) -> ServiceResult<GlobSet> {
-    let normalized = if pattern.trim().is_empty() {
-        "**/*"
-    } else {
-        pattern
-    };
-
-    let mut builder = GlobSetBuilder::new();
-    let glob = Glob::new(normalized).map_err(|err| {
-        ServiceError::FromString(format!(
-            "Invalid file glob pattern '{normalized}': {err}"
-        ))
-    })?;
-    builder.add(glob);
-    builder
-        .build()
-        .map_err(|err| ServiceError::FromString(format!(
-            "Failed to build file glob matcher for pattern '{normalized}': {err}"
-        )))
-}
-
-fn compile_exclude_glob(patterns: Option<&[String]>) -> ServiceResult<Option<GlobSet>> {
-    let Some(patterns) = patterns else {
-        return Ok(None);
-    };
-
-    if patterns.is_empty() {
-        return Ok(None);
-    }
-
-    let mut builder = GlobSetBuilder::new();
-    let mut added = false;
-
-    for pattern in patterns {
-        if pattern.trim().is_empty() {
-            continue;
-        }
-
-        let normalized = if pattern.contains('*') {
-            pattern.strip_prefix('/').unwrap_or(pattern).to_owned()
-        } else {
-            format!("*{pattern}*")
-        };
-
-        let glob = Glob::new(&normalized).map_err(|err| {
-            ServiceError::FromString(format!(
-                "Invalid exclude glob pattern '{pattern}': {err}"
-            ))
-        })?;
-        builder.add(glob);
-        added = true;
-    }
-
-    if !added {
-        return Ok(None);
-    }
-
-    builder
-        .build()
-        .map(Some)
-        .map_err(|err| ServiceError::FromString(format!(
-            "Failed to build exclude glob patterns: {err}"
-        )))
 }

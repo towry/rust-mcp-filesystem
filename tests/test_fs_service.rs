@@ -1132,9 +1132,9 @@ async fn search_files_content() {
             "*.txt",
             query,
             true,
-            None,          // exclude_patterns
-            None,          // min_bytes
-            None,          // max_bytes
+            None, // exclude_patterns
+            None, // min_bytes
+            None, // max_bytes
         )
         .await
         .unwrap();
@@ -1142,6 +1142,32 @@ async fn search_files_content() {
     // Each file should have 3 matches: "Watsons", "Watson", "Watso2n"
     assert_eq!(results[0].matches.len(), 3);
     assert_eq!(results[1].matches.len(), 3);
+}
+
+#[tokio::test]
+async fn search_files_content_respects_excludes() {
+    let (temp_dir, service, _allowed_dirs) = setup_service(vec!["dir_search".to_string()]);
+    let dir = temp_dir.as_path().join("dir_search");
+
+    create_temp_file(&dir, "keep.txt", "Sherlock Holmes finds clues.");
+    create_temp_file(&dir, "skip.txt", "Sherlock Holmes overlooks this clue.");
+
+    let results = service
+        .search_files_content(
+            dir.clone(),
+            "*.txt",
+            "Holmes",
+            false,
+            Some(vec!["skip.txt".to_string()]),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(results.len(), 1);
+    assert!(results[0].file_path.to_string_lossy().ends_with("keep.txt"));
+    assert_eq!(results[0].matches.len(), 1);
 }
 
 #[tokio::test]
@@ -1155,7 +1181,10 @@ async fn test_head_file_normal() {
     )
     .await;
 
-    let result = service.read_file_lines(&file_path, 0, Some(3), false).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(3), false)
+        .await
+        .unwrap();
     assert_eq!(result, "line1\nline2\nline3\n");
 }
 
@@ -1165,7 +1194,10 @@ async fn test_head_file_empty_file() {
     let file_path =
         create_test_file_with_line_ending(&temp_dir, "dir1/empty.txt", vec![], "\n").await;
 
-    let result = service.read_file_lines(&file_path, 0, Some(5), false).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(5), false)
+        .await
+        .unwrap();
     assert_eq!(result, "");
 }
 
@@ -1180,7 +1212,10 @@ async fn test_head_file_n_zero() {
     )
     .await;
 
-    let result = service.read_file_lines(&file_path, 0, Some(0), false).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(0), false)
+        .await
+        .unwrap();
     assert_eq!(result, "");
 }
 
@@ -1191,7 +1226,10 @@ async fn test_head_file_n_larger_than_file() {
         create_test_file_with_line_ending(&temp_dir, "dir1/test.txt", vec!["line1", "line2"], "\n")
             .await;
 
-    let result = service.read_file_lines(&file_path, 0, Some(5), false).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(5), false)
+        .await
+        .unwrap();
     assert_eq!(result, "line1\nline2");
 }
 
@@ -1206,7 +1244,10 @@ async fn test_head_file_no_trailing_newline() {
     let mut file = File::create(&file_path).unwrap();
     file.write_all(b"line1\nline2\nline3").unwrap();
 
-    let result = service.read_file_lines(&file_path, 0, Some(3), false).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(3), false)
+        .await
+        .unwrap();
     assert_eq!(result, "line1\nline2\nline3");
 }
 
@@ -1216,7 +1257,10 @@ async fn test_head_file_single_line() {
     let file_path =
         create_test_file_with_line_ending(&temp_dir, "dir1/test.txt", vec!["line1"], "\n").await;
 
-    let result = service.read_file_lines(&file_path, 0, Some(1), false).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(1), false)
+        .await
+        .unwrap();
     assert_eq!(result, "line1");
 }
 
@@ -1231,7 +1275,10 @@ async fn test_head_file_windows_line_endings() {
     )
     .await;
 
-    let result = service.read_file_lines(&file_path, 0, Some(2), false).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(2), false)
+        .await
+        .unwrap();
     assert_eq!(result, "line1\r\nline2\r\n");
 }
 
@@ -1240,7 +1287,9 @@ async fn test_head_file_invalid_path() {
     let (temp_dir, service, _allowed_dirs) = setup_service(vec!["dir1".to_string()]);
     let invalid_path = temp_dir.join("dir2/test.txt"); // Outside allowed_dirs
 
-    let result = service.read_file_lines(&invalid_path, 0, Some(3), false).await;
+    let result = service
+        .read_file_lines(&invalid_path, 0, Some(3), false)
+        .await;
     assert!(result.is_err(), "Expected error for invalid path");
 }
 
@@ -1255,7 +1304,10 @@ async fn test_tail_file_normal() {
     )
     .await;
 
-    let result = service.read_file_lines(&file_path, 0, Some(3), true).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(3), true)
+        .await
+        .unwrap();
     assert_eq!(result, "line3\nline4\nline5"); // No trailing newline
 }
 
@@ -1266,7 +1318,10 @@ async fn test_tail_file_empty_file() {
         create_test_file_with_line_ending(&temp_dir.to_path_buf(), "dir1/empty.txt", vec![], "\n")
             .await;
 
-    let result = service.read_file_lines(&file_path, 0, Some(5), true).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(5), true)
+        .await
+        .unwrap();
     assert_eq!(result, "");
 }
 
@@ -1281,7 +1336,10 @@ async fn test_tail_file_n_zero() {
     )
     .await;
 
-    let result = service.read_file_lines(&file_path, 0, Some(0), true).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(0), true)
+        .await
+        .unwrap();
     assert_eq!(result, "");
 }
 
@@ -1296,7 +1354,10 @@ async fn test_tail_file_n_larger_than_file() {
     )
     .await;
 
-    let result = service.read_file_lines(&file_path, 0, Some(5), true).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(5), true)
+        .await
+        .unwrap();
     assert_eq!(result, "line1\nline2"); // No trailing newline
 }
 
@@ -1310,7 +1371,10 @@ async fn test_tail_file_no_newline_at_end() {
     );
     println!(">>>  {file_path:?} ");
 
-    let result = service.read_file_lines(&file_path, 0, Some(2), true).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(2), true)
+        .await
+        .unwrap();
     assert_eq!(result, "line2\nline3");
 }
 
@@ -1325,7 +1389,10 @@ async fn test_tail_file_single_line() {
     )
     .await;
 
-    let result = service.read_file_lines(&file_path, 0, Some(1), true).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(1), true)
+        .await
+        .unwrap();
     assert_eq!(result, "line1"); // No trailing newline
 }
 
@@ -1340,7 +1407,10 @@ async fn test_tail_file_windows_line_endings() {
     )
     .await;
 
-    let result = service.read_file_lines(&file_path, 0, Some(2), true).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 0, Some(2), true)
+        .await
+        .unwrap();
     assert_eq!(result, "line2\r\nline3"); // No trailing newline
 }
 
@@ -1349,7 +1419,9 @@ async fn test_tail_file_invalid_path() {
     let (temp_dir, service, _allowed_dirs) = setup_service(vec!["dir1".to_string()]);
     let invalid_path = temp_dir.join("dir2/test.txt"); // Outside allowed_dirs
 
-    let result = service.read_file_lines(&invalid_path, 0, Some(3), true).await;
+    let result = service
+        .read_file_lines(&invalid_path, 0, Some(3), true)
+        .await;
     assert!(result.is_err(), "Expected error for invalid path");
 }
 
@@ -1404,7 +1476,10 @@ async fn test_read_file_lines_no_limit() {
     )
     .await;
 
-    let result = service.read_file_lines(&file_path, 2, None, false).await.unwrap();
+    let result = service
+        .read_file_lines(&file_path, 2, None, false)
+        .await
+        .unwrap();
     assert_eq!(result, "line3\nline4"); // No trailing newline
 }
 
@@ -1473,7 +1548,9 @@ async fn test_read_file_lines_invalid_path() {
     let (temp_dir, service, _allowed_dirs) = setup_service(vec!["dir1".to_string()]);
     let invalid_path = temp_dir.join("dir2/test.txt"); // Outside allowed_dirs
 
-    let result = service.read_file_lines(&invalid_path, 0, Some(3), false).await;
+    let result = service
+        .read_file_lines(&invalid_path, 0, Some(3), false)
+        .await;
     assert!(result.is_err(), "Expected error for invalid path");
 }
 
