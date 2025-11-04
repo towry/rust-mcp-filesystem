@@ -239,8 +239,11 @@ impl FileSystemService {
 
                 let path = entry.path();
 
-                // Apply file pattern filter
-                if !glob_match(&file_pattern, path.to_string_lossy().as_ref()) {
+                // Apply file pattern filter - match against filename only, not full path
+                let filename = path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
+                if !glob_match(&file_pattern, filename) {
                     return WalkState::Continue;
                 }
 

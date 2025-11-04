@@ -58,47 +58,44 @@ impl FileSystemService {
             // Use rev_lines crate for efficient reverse reading
             let valid_path_clone = valid_path.to_path_buf();
             let result = tokio::task::spawn_blocking(move || -> ServiceResult<String> {
-                use rev_lines::RevLines;
                 use std::fs::File;
+                use std::io::{BufRead, BufReader};
 
+                // Read file content to detect line ending style
+                let file_content = std::fs::read(&valid_path_clone)?;
+                let has_crlf = file_content.windows(2).any(|w| w == b"\r\n");
+                let line_ending = if has_crlf { "\r\n" } else { "\n" };
+
+                // Read all lines preserving order
                 let file = File::open(&valid_path_clone)?;
-                let rev_lines_iter = RevLines::new(file);
-
-                // Collect all lines in reverse order
-                let all_lines: Vec<String> = rev_lines_iter
-                    .collect::<Result<Vec<_>, _>>()
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+                let reader = BufReader::new(file);
+                let all_lines: Vec<String> = reader.lines().collect::<Result<Vec<_>, _>>()?;
 
                 // Apply offset from end
                 if offset >= all_lines.len() {
                     return Ok(String::new());
                 }
 
-                // Determine how many lines to read
+                // Determine how many lines to read from end
                 let lines_to_read = limit.unwrap_or(all_lines.len() - offset).min(all_lines.len() - offset);
 
-                // Get the slice of lines we need (they're in reverse order)
-                let start_idx = offset;
-                let end_idx = offset + lines_to_read;
-                let selected_lines: Vec<_> = all_lines[start_idx..end_idx]
-                    .iter()
-                    .rev() // Reverse back to original order
-                    .cloned()
-                    .collect();
+                // Get the slice of lines we need (from end)
+                let start_idx = all_lines.len() - offset - lines_to_read;
+                let end_idx = all_lines.len() - offset;
+                let selected_lines = &all_lines[start_idx..end_idx];
 
                 // Reconstruct the text with proper line endings
                 if selected_lines.is_empty() {
                     return Ok(String::new());
                 }
 
-                let mut result = selected_lines.join("\n");
+                let mut result = selected_lines.join(line_ending);
 
                 // Only add trailing newline if we're reading up to the actual end of file
                 if offset == 0 {
                     // Check if original file ends with newline
-                    let file_content = std::fs::read(&valid_path_clone)?;
                     if !file_content.is_empty() && file_content[file_content.len() - 1] == b'\n' {
-                        result.push('\n');
+                        result.push_str(line_ending);
                     }
                 }
 
