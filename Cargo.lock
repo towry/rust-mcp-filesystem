@@ -962,7 +962,7 @@ dependencies = [
 
 [[package]]
 name = "rust-mcp-filesystem"
-version = "0.3.9"
+version = "0.3.10"
 dependencies = [
  "ast-grep-core",
  "ast-grep-language",
