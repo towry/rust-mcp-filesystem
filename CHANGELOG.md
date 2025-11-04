@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.10](https://github.com/towry/rust-mcp-filesystem/compare/v0.3.9...v0.3.10) (2025-11-04)
+
+
+### ⚡ Performance Improvements
+
+* **search:** Optimize AST search with caching and early termination ([eab6de6](https://github.com/towry/rust-mcp-filesystem/commit/eab6de671218ecec77893bf009a6fc6b6c7c8767))
+* **search:** Replace glob-match with globset for better performance ([281a95a](https://github.com/towry/rust-mcp-filesystem/commit/281a95a7fda041646bd83e130a29a16a80bac20c))
+
 ## [0.3.9](https://github.com/towry/rust-mcp-filesystem/compare/v0.3.8...v0.3.9) (2025-11-04)
 
 
