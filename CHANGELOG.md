@@ -1,5 +1,65 @@
 # Changelog
 
+## [0.3.8](https://github.com/towry/rust-mcp-filesystem/compare/v0.3.8...v0.3.8) (2025-11-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* upgrade to latest MCP protocol (2025-06-18) ([#29](https://github.com/towry/rust-mcp-filesystem/issues/29))
+
+### 🚀 Features
+
+* Add AST-based code search and tool filtering ([c352a62](https://github.com/towry/rust-mcp-filesystem/commit/c352a622628e1307e9da61e691e9a78f905c82a7))
+* Add AST-based code search and tool filtering ([c352a62](https://github.com/towry/rust-mcp-filesystem/commit/c352a622628e1307e9da61e691e9a78f905c82a7))
+* Add list_directory_with_sizes MCP Tool for Directory Listing with File Sizes ([#27](https://github.com/towry/rust-mcp-filesystem/issues/27)) ([15121c8](https://github.com/towry/rust-mcp-filesystem/commit/15121c8d1605366ea5185f6a9e2ffd7036693d13))
+* Add multiple new tools + enhancements ([#44](https://github.com/towry/rust-mcp-filesystem/issues/44)) ([6188eb3](https://github.com/towry/rust-mcp-filesystem/commit/6188eb3b54e58fad8bf22488b306bf3523f60cda))
+* Add new tool for reading media files (Image / Audio) ([#43](https://github.com/towry/rust-mcp-filesystem/issues/43)) ([534d803](https://github.com/towry/rust-mcp-filesystem/commit/534d8036cdd2e9b7e6d6635bce136949acc32518))
+* Add support for brace expansion in glob patterns ([#52](https://github.com/towry/rust-mcp-filesystem/issues/52)) ([5be0b32](https://github.com/towry/rust-mcp-filesystem/commit/5be0b32f0cd878db600a0740cd960b089742a907))
+* Enhance directory_tree response with metadata ([#30](https://github.com/towry/rust-mcp-filesystem/issues/30)) ([41e7424](https://github.com/towry/rust-mcp-filesystem/commit/41e742401fdf0d09f74084d3ead6082bd7e51384))
+* Implement a new mcp tool for searching files content ([#23](https://github.com/towry/rust-mcp-filesystem/issues/23)) ([950149a](https://github.com/towry/rust-mcp-filesystem/commit/950149aa30542c8ffcba040de614861eda4b68da))
+* Implement mcp roots protocol support ([#41](https://github.com/towry/rust-mcp-filesystem/issues/41)) ([df715f1](https://github.com/towry/rust-mcp-filesystem/commit/df715f13bddb1c980513ef87ec3911c8cade1bce))
+* Improve tools descriptions ([1f9fa19](https://github.com/towry/rust-mcp-filesystem/commit/1f9fa193bc09e45179fa1c42e00b1e67c979e134))
+* Improve tools descriptions ([f3129e7](https://github.com/towry/rust-mcp-filesystem/commit/f3129e7188986899f099e9bf211fb1b960081645))
+* Support environment variables ([#46](https://github.com/towry/rust-mcp-filesystem/issues/46)) ([b241a97](https://github.com/towry/rust-mcp-filesystem/commit/b241a976519b488323ef68f927a21b6e24be3126))
+* Update document and installers with npm support ([#68](https://github.com/towry/rust-mcp-filesystem/issues/68)) ([5b78516](https://github.com/towry/rust-mcp-filesystem/commit/5b785169e5522cf28097f4b9781462ddfb73aeb2))
+* Update mcp-sdk dependency for smaller binary size ([3db8038](https://github.com/towry/rust-mcp-filesystem/commit/3db80384a9d7c975229cceb5a78e0c0e2cb6f2ef))
+* Update rust-mcp-sdk and outdated dependencies ([cf62128](https://github.com/towry/rust-mcp-filesystem/commit/cf62128d2845566fc900aaee62f5932f6bda0e72))
+* Update rust-mcp-sdk to latest version ([c59b685](https://github.com/towry/rust-mcp-filesystem/commit/c59b6854f5df6fd2d98232eff72e9a635cb08bd5))
+* Upgrade to latest MCP protocol (2025-06-18) ([#29](https://github.com/towry/rust-mcp-filesystem/issues/29)) ([cd6af1b](https://github.com/towry/rust-mcp-filesystem/commit/cd6af1bfc14dab4b2ba68b014be860c8e9668667))
+* Upgrade to latest MCP schema version ([f950fcf](https://github.com/towry/rust-mcp-filesystem/commit/f950fcf086da51115426796e474ba1d6180e3b01))
+
+
+### 🐛 Bug Fixes
+
+* Cargo dist update ([8ef4393](https://github.com/towry/rust-mcp-filesystem/commit/8ef43935a5fb92df33da36e12812de004e337a57))
+* Directory tree tool result ([#26](https://github.com/towry/rust-mcp-filesystem/issues/26)) ([01f956e](https://github.com/towry/rust-mcp-filesystem/commit/01f956efdde5fdd0e5fd14f30e4ebdac53d728f7))
+* Dockerhub mcp-registry issue ([#48](https://github.com/towry/rust-mcp-filesystem/issues/48)) ([e482836](https://github.com/towry/rust-mcp-filesystem/commit/e482836b57b1786815bd87d2f50a7cd0488fbbf9))
+* Duplicate tool name ([#55](https://github.com/towry/rust-mcp-filesystem/issues/55)) ([eb72f6d](https://github.com/towry/rust-mcp-filesystem/commit/eb72f6d6d7ba8074c78190cc317a93af90609975))
+* File edit operation by adding bounds check ([#20](https://github.com/towry/rust-mcp-filesystem/issues/20)) ([4fedd50](https://github.com/towry/rust-mcp-filesystem/commit/4fedd5090e3204aee8f9dff9442953b8d2993616))
+* Homebrew build issue ([da85e41](https://github.com/towry/rust-mcp-filesystem/commit/da85e4122ca67219d80d5b2946004bbc7986cef9))
+* Ignore client root change notification when it is not enabled by server ([#65](https://github.com/towry/rust-mcp-filesystem/issues/65)) ([3ca810a](https://github.com/towry/rust-mcp-filesystem/commit/3ca810ade142d91d14d1d138e9cc8f5680b35ec5))
+* Issue 12 edit_file tool panics ([#14](https://github.com/towry/rust-mcp-filesystem/issues/14)) ([25da5a6](https://github.com/towry/rust-mcp-filesystem/commit/25da5a674a0455d9e752da65b5fcb94053aa40b1))
+* Issue-37 panic in search files content tool ([#38](https://github.com/towry/rust-mcp-filesystem/issues/38)) ([1f7b985](https://github.com/towry/rust-mcp-filesystem/commit/1f7b985ffc5bf6b6c00225c6755f1ae068fad1d5))
+* Support clients with older versions of mcp protocol ([#17](https://github.com/towry/rust-mcp-filesystem/issues/17)) ([4c14bde](https://github.com/towry/rust-mcp-filesystem/commit/4c14bde9f9233535cdf0cb17127ed15a24d2650a))
+* Update cargo dist ([4ded5ca](https://github.com/towry/rust-mcp-filesystem/commit/4ded5cae9fc292dfea821f82aeaea5eea2c069ca))
+* Update docker image ([#57](https://github.com/towry/rust-mcp-filesystem/issues/57)) ([0924e77](https://github.com/towry/rust-mcp-filesystem/commit/0924e77d14b0e233fbc862a0dda4066dd9c724ec))
+* Update rust-mcp-sdk dependency to the latest ([#39](https://github.com/towry/rust-mcp-filesystem/issues/39)) ([9174be8](https://github.com/towry/rust-mcp-filesystem/commit/9174be8c9286eb5245a4e0537e803dfff51a4cee))
+
+
+### 📚 Documentation
+
+* Updated documentation with installation and dockerhub registry ([10949df](https://github.com/towry/rust-mcp-filesystem/commit/10949df1f0019a52795bd0b19a70cc1ea39cffb3))
+
+
+### ⚙️ Miscellaneous Chores
+
+* Release 0.1.0 ([042f817](https://github.com/towry/rust-mcp-filesystem/commit/042f817ab05129706e532991ef14fc7a4d23bda6))
+* Release 0.1.1 ([d9c0fb6](https://github.com/towry/rust-mcp-filesystem/commit/d9c0fb608bf8fe799ca0b6b853c8299226362531))
+* Release 0.3.0 ([4a01d17](https://github.com/towry/rust-mcp-filesystem/commit/4a01d1725319ced7324e24e71922a2f9a59ebb9e))
+* Release 0.3.1 ([8177514](https://github.com/towry/rust-mcp-filesystem/commit/81775149765025a5a420762ebd8c3a09921601b3))
+* Release 0.3.8 ([38f2919](https://github.com/towry/rust-mcp-filesystem/commit/38f29190b167bc36de4f33edae3bd63f61567aa7))
+* Release 0.3.8 ([9030cbb](https://github.com/towry/rust-mcp-filesystem/commit/9030cbbabca1bca1992a93a63a9d01b367e0d83e))
+
 ## [0.3.8](https://github.com/rust-mcp-stack/rust-mcp-filesystem/compare/v0.3.7...v0.3.8) (2025-10-31)
 
 
