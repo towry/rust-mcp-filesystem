@@ -6,4 +6,4 @@ pub mod utils;
 
 pub use core::FileSystemService;
 pub use io::FileInfo;
-pub use search::FileSearchResult;
+pub use search::{AstFileSearchResult, AstMatchResult, FileSearchResult};

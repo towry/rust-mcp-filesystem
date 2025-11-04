@@ -11,21 +11,44 @@ use rust_mcp_sdk::schema::{
     ListToolsResult, RpcError, schema_utils::CallToolError,
 };
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 pub struct FileSystemHandler {
     readonly: bool,
     mcp_roots_support: bool,
     fs_service: Arc<FileSystemService>,
+    enabled_tools: Option<HashSet<String>>,
 }
 
 impl FileSystemHandler {
     pub fn new(args: &CommandArguments) -> ServiceResult<Self> {
         let fs_service = FileSystemService::try_new(&args.allowed_directories)?;
+
+        // Parse enabled tools from command arguments
+        let enabled_tools = args.tools.as_ref().and_then(|tools_str| {
+            let trimmed = tools_str.trim();
+            if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("all") {
+                None // None means all tools enabled
+            } else {
+                let mut tools: HashSet<String> = trimmed
+                    .split(',')
+                    .map(|s| s.trim().to_lowercase())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+
+                // Always ensure list_allowed_directories is enabled
+                tools.insert("list_allowed_directories".to_string());
+
+                Some(tools)
+            }
+        });
+
         Ok(Self {
             fs_service: Arc::new(fs_service),
             readonly: !args.allow_write,
             mcp_roots_support: args.enable_roots,
+            enabled_tools,
         })
     }
 
@@ -163,8 +186,20 @@ impl ServerHandler for FileSystemHandler {
         _: ListToolsRequest,
         _: Arc<dyn McpServer>,
     ) -> std::result::Result<ListToolsResult, RpcError> {
+        let all_tools = FileSystemTools::tools();
+
+        // Filter tools based on enabled_tools configuration
+        let filtered_tools = if let Some(enabled) = &self.enabled_tools {
+            all_tools
+                .into_iter()
+                .filter(|tool| enabled.contains(&tool.name.to_lowercase()))
+                .collect()
+        } else {
+            all_tools
+        };
+
         Ok(ListToolsResult {
-            tools: FileSystemTools::tools(),
+            tools: filtered_tools,
             meta: None,
             next_cursor: None,
         })
@@ -200,6 +235,16 @@ impl ServerHandler for FileSystemHandler {
         let tool_params: FileSystemTools =
             FileSystemTools::try_from(request.params).map_err(CallToolError::new)?;
 
+        // Check if the tool is enabled
+        if let Some(enabled) = &self.enabled_tools {
+            let tool_name = tool_params.tool_name();
+            if !enabled.contains(&tool_name.to_lowercase()) {
+                return Err(CallToolError::new(ServiceError::ToolNotEnabled(
+                    tool_name,
+                )));
+            }
+        }
+
         // Verify write access for tools that modify the file system
         if tool_params.require_write_access() {
             self.assert_write_access()?;
@@ -225,9 +270,8 @@ impl ServerHandler for FileSystemHandler {
             UnzipFile,
             ZipDirectory,
             SearchFilesContent,
+            SearchCodeAst,
             ListDirectoryWithSizes,
-            HeadFile,
-            TailFile,
             ReadFileLines,
             FindEmptyDirectories,
             CalculateDirectorySize,

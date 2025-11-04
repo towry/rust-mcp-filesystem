@@ -13,6 +13,8 @@ pub enum ServiceError {
         "Service is running in read-only mode. To enable write access, please run with the --allow-write flag."
     )]
     NoWriteAccess,
+    #[error("Tool '{0}' is not enabled. Please add it to the --tools parameter or use --tools all to enable all tools.")]
+    ToolNotEnabled(String),
     #[error("{0}")]
     FromString(String),
     #[error("{0}")]

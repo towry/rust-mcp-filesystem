@@ -31,6 +31,9 @@ pub struct SearchFiles {
     #[serde(rename = "excludePatterns")]
     /// Optional list of patterns to exclude from the search.
     pub exclude_patterns: Option<Vec<String>>,
+    #[serde(rename = "fileExtensions")]
+    /// Optional list of file extensions to include (e.g., ["ts", "tsx", "js"]).
+    pub file_extensions: Option<Vec<String>>,
     /// Minimum file size (in bytes) to include in the search (optional).
     pub min_bytes: Option<u64>,
     /// Maximum file size (in bytes) to include in the search (optional).
@@ -46,6 +49,7 @@ impl SearchFiles {
                 Path::new(&params.path),
                 params.pattern,
                 params.exclude_patterns.unwrap_or_default(),
+                params.file_extensions,
                 params.min_bytes,
                 params.max_bytes,
             )

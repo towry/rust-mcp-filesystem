@@ -11,10 +11,10 @@ use crate::{
 use futures::{StreamExt, stream};
 use std::fs::{self};
 use std::time::SystemTime;
-use std::{io::SeekFrom, path::Path};
+use std::path::Path;
 use tokio::{
     fs::File,
-    io::{AsyncBufReadExt, AsyncReadExt, AsyncSeekExt, BufReader},
+    io::{AsyncBufReadExt, BufReader},
 };
 
 const MAX_CONCURRENT_FILE_READ: usize = 5;
@@ -27,132 +27,19 @@ impl FileSystemService {
         Ok(content)
     }
 
-    /// Reads the first n lines from a text file, preserving line endings.
-    /// Args:
-    ///     file_path: Path to the file
-    ///     n: Number of lines to read
-    /// Returns a String containing the first n lines with original line endings or an error if the path is invalid or file cannot be read.
-    pub async fn head_file(&self, file_path: &Path, n: usize) -> ServiceResult<String> {
-        // Validate file path against allowed directories
-        let allowed_directories = self.allowed_directories().await;
-        let valid_path = self.validate_path(file_path, allowed_directories)?;
-
-        // Open file asynchronously and create a BufReader
-        let file = File::open(&valid_path).await?;
-        let mut reader = BufReader::new(file);
-        let mut result = String::with_capacity(n * 100); // Estimate capacity (avg 100 bytes/line)
-        let mut count = 0;
-
-        // Read lines asynchronously, preserving line endings
-        let mut line = Vec::new();
-        while count < n {
-            line.clear();
-            let bytes_read = reader.read_until(b'\n', &mut line).await?;
-            if bytes_read == 0 {
-                break; // Reached EOF
-            }
-            result.push_str(&String::from_utf8_lossy(&line));
-            count += 1;
-        }
-
-        Ok(result)
-    }
-
-    /// Reads the last n lines from a text file, preserving line endings.
-    /// Args:
-    ///     file_path: Path to the file
-    ///     n: Number of lines to read
-    /// Returns a String containing the last n lines with original line endings or an error if the path is invalid or file cannot be read.
-    pub async fn tail_file(&self, file_path: &Path, n: usize) -> ServiceResult<String> {
-        // Validate file path against allowed directories
-        let allowed_directories = self.allowed_directories().await;
-        let valid_path = self.validate_path(file_path, allowed_directories)?;
-
-        // Open file asynchronously
-        let file = File::open(&valid_path).await?;
-        let file_size = file.metadata().await?.len();
-
-        // If file is empty or n is 0, return empty string
-        if file_size == 0 || n == 0 {
-            return Ok(String::new());
-        }
-
-        // Create a BufReader
-        let mut reader = BufReader::new(file);
-        let mut line_count = 0;
-        let mut pos = file_size;
-        let chunk_size = 8192; // 8KB chunks
-        let mut buffer = vec![0u8; chunk_size];
-        let mut newline_positions = Vec::new();
-
-        // Read backwards to collect all newline positions
-        while pos > 0 {
-            let read_size = chunk_size.min(pos as usize);
-            pos -= read_size as u64;
-            reader.seek(SeekFrom::Start(pos)).await?;
-            let read_bytes = reader.read_exact(&mut buffer[..read_size]).await?;
-
-            // Process chunk in reverse to find newlines
-            for (i, byte) in buffer[..read_bytes].iter().enumerate().rev() {
-                if *byte == b'\n' {
-                    newline_positions.push(pos + i as u64);
-                    line_count += 1;
-                }
-            }
-        }
-
-        // Check if file ends with a non-newline character (partial last line)
-        if file_size > 0 {
-            let mut temp_reader = BufReader::new(File::open(&valid_path).await?);
-            temp_reader.seek(SeekFrom::End(-1)).await?;
-            let mut last_byte = [0u8; 1];
-            temp_reader.read_exact(&mut last_byte).await?;
-            if last_byte[0] != b'\n' {
-                line_count += 1;
-            }
-        }
-
-        // Determine start position for reading the last n lines
-        let start_pos = if line_count <= n {
-            0 // Read from start if fewer than n lines
-        } else {
-            *newline_positions.get(line_count - n).unwrap_or(&0) + 1
-        };
-
-        // Read forward from start_pos
-        reader.seek(SeekFrom::Start(start_pos)).await?;
-        let mut result = String::with_capacity(n * 100); // Estimate capacity
-        let mut line = Vec::new();
-        let mut lines_read = 0;
-
-        while lines_read < n {
-            line.clear();
-            let bytes_read = reader.read_until(b'\n', &mut line).await?;
-            if bytes_read == 0 {
-                // Handle partial last line at EOF
-                if !line.is_empty() {
-                    result.push_str(&String::from_utf8_lossy(&line));
-                }
-                break;
-            }
-            result.push_str(&String::from_utf8_lossy(&line));
-            lines_read += 1;
-        }
-
-        Ok(result)
-    }
-
-    /// Reads lines from a text file starting at the specified offset (0-based), preserving line endings.
+    /// Reads lines from a text file with flexible positioning options, preserving line endings.
     /// Args:
     ///     path: Path to the file
-    ///     offset: Number of lines to skip (0-based)
+    ///     offset: Number of lines to skip (0-based) from start or end
     ///     limit: Optional maximum number of lines to read
+    ///     from_end: If true, reads from the end of the file
     /// Returns a String containing the selected lines with original line endings or an error if the path is invalid or file cannot be read.
     pub async fn read_file_lines(
         &self,
         path: &Path,
         offset: usize,
         limit: Option<usize>,
+        from_end: bool,
     ) -> ServiceResult<String> {
         // Validate file path against allowed directories
         let allowed_directories = self.allowed_directories().await;
@@ -161,48 +48,103 @@ impl FileSystemService {
         // Open file and get metadata before moving into BufReader
         let file = File::open(&valid_path).await?;
         let file_size = file.metadata().await?.len();
-        let mut reader = BufReader::new(file);
 
         // If file is empty or limit is 0, return empty string
         if file_size == 0 || limit == Some(0) {
             return Ok(String::new());
         }
 
-        // Skip offset lines (0-based indexing)
-        let mut buffer = Vec::new();
-        for _ in 0..offset {
-            buffer.clear();
-            if reader.read_until(b'\n', &mut buffer).await? == 0 {
-                return Ok(String::new()); // EOF before offset
-            }
-        }
+        if from_end {
+            // Use rev_lines crate for efficient reverse reading
+            let valid_path_clone = valid_path.to_path_buf();
+            let result = tokio::task::spawn_blocking(move || -> ServiceResult<String> {
+                use std::fs::File;
+                use std::io::{BufRead, BufReader};
 
-        // Read lines up to limit (or all remaining if limit is None)
-        let mut result = String::with_capacity(limit.unwrap_or(100) * 100); // Estimate capacity
-        match limit {
-            Some(max_lines) => {
-                for _ in 0..max_lines {
-                    buffer.clear();
-                    let bytes_read = reader.read_until(b'\n', &mut buffer).await?;
-                    if bytes_read == 0 {
-                        break; // Reached EOF
+                // Read file content to detect line ending style
+                let file_content = std::fs::read(&valid_path_clone)?;
+                let has_crlf = file_content.windows(2).any(|w| w == b"\r\n");
+                let line_ending = if has_crlf { "\r\n" } else { "\n" };
+
+                // Read all lines preserving order
+                let file = File::open(&valid_path_clone)?;
+                let reader = BufReader::new(file);
+                let all_lines: Vec<String> = reader.lines().collect::<Result<Vec<_>, _>>()?;
+
+                // Apply offset from end
+                if offset >= all_lines.len() {
+                    return Ok(String::new());
+                }
+
+                // Determine how many lines to read from end
+                let lines_to_read = limit.unwrap_or(all_lines.len() - offset).min(all_lines.len() - offset);
+
+                // Get the slice of lines we need (from end)
+                let start_idx = all_lines.len() - offset - lines_to_read;
+                let end_idx = all_lines.len() - offset;
+                let selected_lines = &all_lines[start_idx..end_idx];
+
+                // Reconstruct the text with proper line endings
+                if selected_lines.is_empty() {
+                    return Ok(String::new());
+                }
+
+                let mut result = selected_lines.join(line_ending);
+
+                // Only add trailing newline if we're reading up to the actual end of file
+                if offset == 0 {
+                    // Check if original file ends with newline
+                    if !file_content.is_empty() && file_content[file_content.len() - 1] == b'\n' {
+                        result.push_str(line_ending);
                     }
-                    result.push_str(&String::from_utf8_lossy(&buffer));
+                }
+
+                Ok(result)
+            })
+            .await
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))??;
+
+            Ok(result)
+        } else {
+            // Read from start: original logic
+            let mut reader = BufReader::new(file);
+
+            // Skip offset lines (0-based indexing)
+            let mut buffer = Vec::new();
+            for _ in 0..offset {
+                buffer.clear();
+                if reader.read_until(b'\n', &mut buffer).await? == 0 {
+                    return Ok(String::new()); // EOF before offset
                 }
             }
-            None => {
-                loop {
-                    buffer.clear();
-                    let bytes_read = reader.read_until(b'\n', &mut buffer).await?;
-                    if bytes_read == 0 {
-                        break; // Reached EOF
+
+            // Read lines up to limit (or all remaining if limit is None)
+            let mut result = String::with_capacity(limit.unwrap_or(100) * 100); // Estimate capacity
+            match limit {
+                Some(max_lines) => {
+                    for _ in 0..max_lines {
+                        buffer.clear();
+                        let bytes_read = reader.read_until(b'\n', &mut buffer).await?;
+                        if bytes_read == 0 {
+                            break; // Reached EOF
+                        }
+                        result.push_str(&String::from_utf8_lossy(&buffer));
                     }
-                    result.push_str(&String::from_utf8_lossy(&buffer));
+                }
+                None => {
+                    loop {
+                        buffer.clear();
+                        let bytes_read = reader.read_until(b'\n', &mut buffer).await?;
+                        if bytes_read == 0 {
+                            break; // Reached EOF
+                        }
+                        result.push_str(&String::from_utf8_lossy(&buffer));
+                    }
                 }
             }
-        }
 
-        Ok(result)
+            Ok(result)
+        }
     }
 
     pub async fn read_media_files(
