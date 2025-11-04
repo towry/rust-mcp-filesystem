@@ -15,7 +15,7 @@ license = false
 eula = false
 
 [dependencies]
-rust-mcp-sdk = {version="0.7", default-features = false, features = [
+rust-mcp-sdk = { version = "0.7", default-features = false, features = [
     "server",
     "macros",
     "stdio",
@@ -25,9 +25,10 @@ rust-mcp-sdk = {version="0.7", default-features = false, features = [
 thiserror = { version = "2.0" }
 dirs = "6.0"
 walkdir = "2.5"
+ignore = "0.4"
 similar = "=2.7"
 chrono = "0.4"
-clap = { version = "4.5", features = ["derive","env"] }
+clap = { version = "4.5", features = ["derive", "env"] }
 tokio = "1.4"
 serde = "1.0"
 serde_json = "1.0"
@@ -36,11 +37,13 @@ futures = "0.3"
 tokio-util = "0.7"
 async_zip = { version = "0.0", features = ["full"] }
 grep = "0.3"
-base64 =  "0.22"
+base64 = "0.22"
 infer = "0.19.0"
 rayon = "1.11.0"
 sha2 = "0.10.9"
 glob-match = "0.2"
+ast-grep-core = "0.39"
+ast-grep-language = "0.39"
 
 [dev-dependencies]
 tempfile = "3.2"

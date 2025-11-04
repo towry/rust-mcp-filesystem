@@ -120,9 +120,9 @@ impl FileSystemService {
     /// - Parallel iteration is used to speed up the metadata fetching and summation.
     pub async fn calculate_directory_size(&self, root_path: &Path) -> ServiceResult<u64> {
         let entries = self
-            .search_files_iter(root_path, "**/*".to_string(), vec![], None, None)
+            .search_files_iter(root_path, "**/*".to_string(), vec![], None, None, None)
             .await?
-            .filter(|e| e.file_type().is_file()); // Only process files
+            .filter(|e| e.file_type().map_or(false, |ft| ft.is_file())); // Only process files
 
         // Use rayon to parallelize size summation
         let total_size: u64 = entries
@@ -176,11 +176,12 @@ impl FileSystemService {
                 root_path,
                 "**/*".to_string(),
                 exclude_patterns.unwrap_or_default(),
+                None,  // No file extension filter
                 None,
                 None,
             )
             .await?
-            .filter(|e| e.file_type().is_dir()); // Only directories
+            .filter(|e| e.file_type().map_or(false, |ft| ft.is_dir())); // Only directories
 
         let mut empty_dirs = Vec::new();
 

@@ -3,11 +3,11 @@ use crate::{
     fs_service::{FileSystemService, utils::filesize_in_range},
 };
 use glob_match::glob_match;
+use ignore::WalkBuilder;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use sha2::{Digest, Sha256};
 use std::{collections::HashMap, path::Path};
 use tokio::{fs::File, io::AsyncReadExt};
-use walkdir::WalkDir;
 
 impl FileSystemService {
     /// Searches for files in the directory tree starting at `root_path` that match the given `pattern`,
@@ -27,13 +27,14 @@ impl FileSystemService {
         root_path: &Path,
         pattern: String,
         exclude_patterns: Vec<String>,
+        file_extensions: Option<Vec<String>>,
         min_bytes: Option<u64>,
         max_bytes: Option<u64>,
-    ) -> ServiceResult<Vec<walkdir::DirEntry>> {
+    ) -> ServiceResult<Vec<ignore::DirEntry>> {
         let result = self
-            .search_files_iter(root_path, pattern, exclude_patterns, min_bytes, max_bytes)
+            .search_files_iter(root_path, pattern, exclude_patterns, file_extensions, min_bytes, max_bytes)
             .await?;
-        Ok(result.collect::<Vec<walkdir::DirEntry>>())
+        Ok(result.collect::<Vec<ignore::DirEntry>>())
     }
 
     /// Returns an iterator over files in the directory tree starting at `root_path` that match
@@ -53,11 +54,12 @@ impl FileSystemService {
         root_path: &'a Path,
         pattern: String,
         exclude_patterns: Vec<String>,
+        file_extensions: Option<Vec<String>>,
         min_bytes: Option<u64>,
         max_bytes: Option<u64>,
-    ) -> ServiceResult<impl Iterator<Item = walkdir::DirEntry> + 'a> {
+    ) -> ServiceResult<impl Iterator<Item = ignore::DirEntry> + 'a> {
         let allowed_directories = self.allowed_directories().await;
-        let valid_path = self.validate_path(root_path, allowed_directories.clone())?;
+        let valid_path = self.validate_path(root_path, allowed_directories)?;
 
         let updated_pattern = if pattern.contains('*') {
             pattern.to_lowercase()
@@ -66,64 +68,76 @@ impl FileSystemService {
         };
         let glob_pattern = updated_pattern;
 
-        let result = WalkDir::new(valid_path)
-            .follow_links(true)
-            .into_iter()
-            .filter_entry(move |dir_entry| {
-                let full_path = dir_entry.path();
+        let valid_path_for_filter = valid_path.clone();
 
-                // Validate each path before processing
-                let validated_path = self
-                    .validate_path(full_path, allowed_directories.clone())
-                    .ok();
+        let result = WalkBuilder::new(valid_path)
+            .follow_links(false)  // Disable follow_links to prevent infinite loops
+            .max_depth(Some(20))  // Limit maximum depth to prevent excessive traversal
+            .git_ignore(true)     // Respect .gitignore files (default: true)
+            .git_global(true)     // Respect global gitignore (default: true)
+            .git_exclude(true)    // Respect .git/info/exclude (default: true)
+            .ignore(true)         // Respect .ignore files (default: true)
+            .hidden(true)         // Skip hidden files (default: true)
+            .parents(true)        // Read ignore files from parent directories (default: true)
+            .build()
+            .filter_map(|v| v.ok())
+            .filter(move |entry| {
+                let path = entry.path();
 
-                if validated_path.is_none() {
-                    // Skip invalid paths during search
+                // Skip the root directory itself
+                if valid_path_for_filter == path {
                     return false;
                 }
 
-                // Get the relative path from the root_path
-                let relative_path = full_path.strip_prefix(root_path).unwrap_or(full_path);
-
-                let mut should_exclude = exclude_patterns.iter().any(|pattern| {
-                    let glob_pattern = if pattern.contains('*') {
-                        pattern.strip_prefix("/").unwrap_or(pattern).to_owned()
-                    } else {
-                        format!("*{pattern}*")
-                    };
-
-                    glob_match(&glob_pattern, relative_path.to_str().unwrap_or(""))
-                });
-
-                // enforce min/max bytes
-                if !should_exclude && (min_bytes.is_none() || max_bytes.is_none()) {
-                    match dir_entry.metadata().ok() {
-                        Some(metadata) => {
-                            if !filesize_in_range(metadata.len(), min_bytes, max_bytes) {
-                                should_exclude = true;
-                            }
-                        }
-                        None => {
-                            should_exclude = true;
-                        }
+                // Apply custom exclude patterns if provided
+                if !exclude_patterns.is_empty() {
+                    let relative_path = path.strip_prefix(&valid_path_for_filter).unwrap_or(path);
+                    let should_exclude = exclude_patterns.iter().any(|pattern| {
+                        let glob_pattern = if pattern.contains('*') {
+                            pattern.strip_prefix("/").unwrap_or(pattern).to_owned()
+                        } else {
+                            format!("*{pattern}*")
+                        };
+                        glob_match(&glob_pattern, relative_path.to_str().unwrap_or(""))
+                    });
+                    if should_exclude {
+                        return false;
                     }
                 }
 
-                !should_exclude
-            })
-            .filter_map(|v| v.ok())
-            .filter(move |entry| {
-                if root_path == entry.path() {
+                // Check if the name matches the pattern
+                if !glob_match(
+                    &glob_pattern,
+                    &entry.file_name().to_str().unwrap_or("").to_lowercase(),
+                ) {
                     return false;
                 }
 
-                glob_match(
-                    &glob_pattern,
-                    &entry.file_name().to_str().unwrap_or("").to_lowercase(),
-                )
-            });
+                // Filter by file extensions if specified
+                if let Some(ref exts) = file_extensions {
+                    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                        if !exts.iter().any(|e| e.eq_ignore_ascii_case(ext)) {
+                            return false;
+                        }
+                    } else {
+                        // No extension, exclude if extensions filter is set
+                        return false;
+                    }
+                }
 
-        Ok(result)
+                // Only check file size constraints if specified and entry is a file
+                if (min_bytes.is_some() || max_bytes.is_some())
+                    && entry.file_type().map_or(false, |ft| ft.is_file())
+                {
+                    if let Ok(metadata) = entry.metadata() {
+                        return filesize_in_range(metadata.len(), min_bytes, max_bytes);
+                    }
+                    // If we can't get metadata, exclude the file when size filters are set
+                    return false;
+                }
+
+                true
+            });        Ok(result)
     }
 
     /// Finds groups of duplicate files within the given root path.
@@ -151,11 +165,12 @@ impl FileSystemService {
                 &valid_path,
                 pattern.unwrap_or("**/*".to_string()),
                 exclude_patterns.unwrap_or_default(),
+                None,  // No file extension filter
                 min_bytes,
                 max_bytes,
             )
             .await?
-            .filter(|e| e.file_type().is_file()); // Only files
+            .filter(|e| e.file_type().map_or(false, |ft| ft.is_file())); // Only files
 
         for entry in entries {
             if let Ok(metadata) = entry.metadata()
