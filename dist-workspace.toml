@@ -6,7 +6,7 @@ members = ["cargo:."]
 # Path that installers should place binaries in
 install-path = "~/.rust-mcp-stack/bin"
 # The preferred dist version to use in CI (Cargo.toml SemVer syntax)
-cargo-dist-version = "0.30.0"
+cargo-dist-version = "0.30.2"
 # CI backends to support
 ci = "github"
 # The installers to generate for each app
@@ -19,8 +19,6 @@ unix-archive = ".tar.gz"
 install-updater = false
 # Whether dist should create a Github Release or use an existing draft
 create-release = false
-# Publish jobs to run in CI
-publish-jobs = []
 # Disabled: homebrew tap, npm publishing
 # tap = "rust-mcp-stack/homebrew-tap"
 # npm-scope = "@rustmcp"
