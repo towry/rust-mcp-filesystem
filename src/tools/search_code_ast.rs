@@ -45,6 +45,10 @@ pub struct SearchCodeAst {
     #[serde(rename = "fileExtensions")]
     /// Optional list of file extensions to filter (e.g., ["ts", "tsx"]).
     pub file_extensions: Option<Vec<String>>,
+    #[serde(rename = "maxLines", skip_serializing_if = "Option::is_none")]
+    /// Optional: Maximum lines to show per match (default: unlimited).
+    /// Useful for limiting output when matches are very large.
+    pub max_lines: Option<u64>,
 }
 
 impl SearchCodeAst {
@@ -66,9 +70,30 @@ impl SearchCodeAst {
                     m.byte_range.1
                 );
 
-                // Indent the matched code
-                for line in m.matched_code.lines() {
-                    let _ = writeln!(output, "    {}", line);
+                // Handle line limiting
+                let lines: Vec<&str> = m.matched_code.lines().collect();
+                let total_lines = lines.len();
+
+                if let Some(max_lines) = self.max_lines {
+                    let max_lines_usize = max_lines as usize;
+                    if total_lines > max_lines_usize {
+                        // Show first max_lines lines
+                        for line in lines.iter().take(max_lines_usize) {
+                            let _ = writeln!(output, "    {}", line);
+                        }
+                        let omitted = total_lines - max_lines_usize;
+                        let _ = writeln!(output, "    ... ({} more lines omitted)", omitted);
+                    } else {
+                        // Show all lines if within limit
+                        for line in lines {
+                            let _ = writeln!(output, "    {}", line);
+                        }
+                    }
+                } else {
+                    // No limit, show all lines
+                    for line in lines {
+                        let _ = writeln!(output, "    {}", line);
+                    }
                 }
                 output.push('\n');
             }

@@ -322,6 +322,41 @@ async fn test_search_files_with_exclude() {
     assert_eq!(names, vec!["test1.txt"]);
 }
 
+#[tokio::test]
+async fn test_search_files_ast_respects_filters() {
+    let (temp_dir, service, _allowed_dirs) = setup_service(vec!["project".to_string()]);
+    let project_root = temp_dir.join("project");
+
+    // File that should match
+    let keep = create_temp_file(&project_root, "keep.rs", "fn keep() { let x = 1; }");
+
+    // File that should be filtered by extension
+    create_temp_file(&project_root, "skip.txt", "fn keep() { let x = 2; }");
+
+    // File that should be excluded by glob pattern
+    create_temp_file(
+        &project_root.join("node_modules"),
+        "ignore.rs",
+        "fn ignored() {}",
+    );
+
+    let results = service
+        .search_files_ast(
+            &project_root,
+            "**/*",
+            "fn $NAME($ARGS) { $BODY }",
+            "rust",
+            Some(vec!["/node_modules/".to_string()]),
+            Some(vec!["rs".to_string()]),
+        )
+        .await
+        .expect("AST search should succeed");
+
+    assert_eq!(results.len(), 1, "Only files passing filters should match");
+    assert_eq!(results[0].file_path, keep);
+    assert_eq!(results[0].matches.len(), 1);
+}
+
 #[test]
 fn test_create_unified_diff() {
     let (_, service, _) = setup_service(vec![]);

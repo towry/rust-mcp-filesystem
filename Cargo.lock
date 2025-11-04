@@ -979,6 +979,7 @@ dependencies = [
  "dirs",
  "futures",
  "glob-match",
+ "globset",
  "grep",
  "ignore",
  "infer",
