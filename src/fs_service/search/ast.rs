@@ -57,6 +57,9 @@ impl FileSystemService {
         // Parse the language
         let lang = self.parse_language(language)?;
 
+        // Validate the pattern by trying to parse it
+        self.validate_pattern(pattern, lang)?;
+
         // Read file content
         let content = std::fs::read_to_string(file_path)?;
 
@@ -93,7 +96,38 @@ impl FileSystemService {
         }))
     }
 
-    /// Parse language string to ast-grep Language
+    /// Validates an AST pattern by attempting to parse it.
+    /// Returns an error if the pattern is invalid.
+    fn validate_pattern(&self, pattern: &str, lang: SupportLang) -> ServiceResult<()> {
+        use crate::error::ServiceError;
+
+        // Try to parse the pattern as code
+        let root = lang.ast_grep(pattern);
+
+        // Check if the pattern parsed to an empty AST (complete failure)
+        let root_text = root.root().text();
+        if root_text.is_empty() && !pattern.trim().is_empty() {
+            return Err(ServiceError::FromString(format!(
+                "Invalid AST pattern syntax. The pattern could not be parsed as valid {} code.\n\
+                Please check the pattern syntax and ensure it follows the language grammar.\n\
+                Documentation: https://ast-grep.github.io/guide/pattern-syntax.html",
+                lang.to_string()
+            )));
+        }
+
+        // Check if the parsed AST contains ERROR nodes, which indicates syntax errors
+        let pattern_ast = Pattern::new(pattern, lang);
+        if pattern_ast.has_error() {
+            return Err(ServiceError::FromString(format!(
+                "Invalid AST pattern syntax. The pattern contains syntax errors (ERROR nodes).\n\
+                Please verify the pattern follows valid {} syntax.\n\
+                Documentation: https://ast-grep.github.io/guide/pattern-syntax.html",
+                lang.to_string()
+            )));
+        }
+
+        Ok(())
+    }    /// Parse language string to ast-grep Language
     fn parse_language(&self, language: &str) -> ServiceResult<SupportLang> {
         use crate::error::ServiceError;
         let lang = match language.to_lowercase().as_str() {
@@ -149,6 +183,10 @@ impl FileSystemService {
         exclude_patterns: Option<Vec<String>>,
         file_extensions: Option<Vec<String>>,
     ) -> ServiceResult<Vec<AstFileSearchResult>> {
+        // Parse language and validate pattern upfront before searching files
+        let lang = self.parse_language(language)?;
+        self.validate_pattern(ast_pattern, lang)?;
+
         let files_iter = self
             .search_files_iter(
                 root_path.as_ref(),
