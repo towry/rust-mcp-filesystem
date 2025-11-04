@@ -44,6 +44,7 @@ sha2 = "0.10.9"
 glob-match = "0.2"
 ast-grep-core = "0.39"
 ast-grep-language = "0.39"
+rev_lines = "0.3"
 
 [dev-dependencies]
 tempfile = "3.2"

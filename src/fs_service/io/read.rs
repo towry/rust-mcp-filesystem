@@ -11,10 +11,10 @@ use crate::{
 use futures::{StreamExt, stream};
 use std::fs::{self};
 use std::time::SystemTime;
-use std::{io::SeekFrom, path::Path};
+use std::path::Path;
 use tokio::{
     fs::File,
-    io::{AsyncBufReadExt, AsyncReadExt, AsyncSeekExt, BufReader},
+    io::{AsyncBufReadExt, BufReader},
 };
 
 const MAX_CONCURRENT_FILE_READ: usize = 5;
@@ -55,74 +55,57 @@ impl FileSystemService {
         }
 
         if from_end {
-            // Read from end: similar to tail_file logic
-            let mut reader = BufReader::new(file);
-            let mut line_count = 0;
-            let mut pos = file_size;
-            let chunk_size = 8192; // 8KB chunks
-            let mut buffer = vec![0u8; chunk_size];
-            let mut newline_positions = Vec::new();
+            // Use rev_lines crate for efficient reverse reading
+            let valid_path_clone = valid_path.to_path_buf();
+            let result = tokio::task::spawn_blocking(move || -> ServiceResult<String> {
+                use rev_lines::RevLines;
+                use std::fs::File;
 
-            // Read backwards to collect all newline positions
-            while pos > 0 {
-                let read_size = chunk_size.min(pos as usize);
-                pos -= read_size as u64;
-                reader.seek(SeekFrom::Start(pos)).await?;
-                let read_bytes = reader.read_exact(&mut buffer[..read_size]).await?;
+                let file = File::open(&valid_path_clone)?;
+                let rev_lines_iter = RevLines::new(file);
 
-                // Process chunk in reverse to find newlines
-                for (i, byte) in buffer[..read_bytes].iter().enumerate().rev() {
-                    if *byte == b'\n' {
-                        newline_positions.push(pos + i as u64);
-                        line_count += 1;
+                // Collect all lines in reverse order
+                let all_lines: Vec<String> = rev_lines_iter
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+
+                // Apply offset from end
+                if offset >= all_lines.len() {
+                    return Ok(String::new());
+                }
+
+                // Determine how many lines to read
+                let lines_to_read = limit.unwrap_or(all_lines.len() - offset).min(all_lines.len() - offset);
+
+                // Get the slice of lines we need (they're in reverse order)
+                let start_idx = offset;
+                let end_idx = offset + lines_to_read;
+                let selected_lines: Vec<_> = all_lines[start_idx..end_idx]
+                    .iter()
+                    .rev() // Reverse back to original order
+                    .cloned()
+                    .collect();
+
+                // Reconstruct the text with proper line endings
+                if selected_lines.is_empty() {
+                    return Ok(String::new());
+                }
+
+                let mut result = selected_lines.join("\n");
+
+                // Only add trailing newline if we're reading up to the actual end of file
+                if offset == 0 {
+                    // Check if original file ends with newline
+                    let file_content = std::fs::read(&valid_path_clone)?;
+                    if !file_content.is_empty() && file_content[file_content.len() - 1] == b'\n' {
+                        result.push('\n');
                     }
                 }
-            }
 
-            // Check if file ends with a non-newline character (partial last line)
-            if file_size > 0 {
-                let mut temp_reader = BufReader::new(File::open(&valid_path).await?);
-                temp_reader.seek(SeekFrom::End(-1)).await?;
-                let mut last_byte = [0u8; 1];
-                temp_reader.read_exact(&mut last_byte).await?;
-                if last_byte[0] != b'\n' {
-                    line_count += 1;
-                }
-            }
-
-            // Apply offset from end
-            if offset >= line_count {
-                return Ok(String::new()); // Offset exceeds total lines
-            }
-
-            let lines_to_read = limit.unwrap_or(line_count - offset).min(line_count - offset);
-
-            // Determine start position for reading
-            let start_pos = if line_count - offset - lines_to_read == 0 {
-                0
-            } else {
-                *newline_positions.get(line_count - offset - lines_to_read).unwrap_or(&0) + 1
-            };
-
-            // Read forward from start_pos
-            reader.seek(SeekFrom::Start(start_pos)).await?;
-            let mut result = String::with_capacity(lines_to_read * 100);
-            let mut line = Vec::new();
-            let mut lines_read = 0;
-
-            while lines_read < lines_to_read {
-                line.clear();
-                let bytes_read = reader.read_until(b'\n', &mut line).await?;
-                if bytes_read == 0 {
-                    // Handle partial last line at EOF
-                    if !line.is_empty() {
-                        result.push_str(&String::from_utf8_lossy(&line));
-                    }
-                    break;
-                }
-                result.push_str(&String::from_utf8_lossy(&line));
-                lines_read += 1;
-            }
+                Ok(result)
+            })
+            .await
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))??;
 
             Ok(result)
         } else {
