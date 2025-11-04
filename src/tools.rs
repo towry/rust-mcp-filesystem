@@ -18,7 +18,6 @@ mod search_code_ast;
 mod search_file;
 mod search_files_content;
 mod write_file;
-mod zip_unzip;
 
 pub use calculate_directory_size::{CalculateDirectorySize, FileSizeOutputFormat};
 pub use create_directory::CreateDirectory;
@@ -41,7 +40,6 @@ pub use search_code_ast::SearchCodeAst;
 pub use search_file::SearchFiles;
 pub use search_files_content::SearchFilesContent;
 pub use write_file::WriteFile;
-pub use zip_unzip::{UnzipFile, ZipDirectory, ZipFiles};
 //Generate FileSystemTools enum , tools() function, and TryFrom<CallToolRequestParams> trait implementation
 tool_box!(
     FileSystemTools,
@@ -58,9 +56,6 @@ tool_box!(
         SearchFiles,
         SearchCodeAst,
         WriteFile,
-        ZipFiles,
-        UnzipFile,
-        ZipDirectory,
         SearchFilesContent,
         ListDirectoryWithSizes,
         ReadMediaFile,
@@ -80,10 +75,7 @@ impl FileSystemTools {
             FileSystemTools::CreateDirectory(_)
             | FileSystemTools::MoveFile(_)
             | FileSystemTools::WriteFile(_)
-            | FileSystemTools::EditFile(_)
-            | FileSystemTools::ZipFiles(_)
-            | FileSystemTools::UnzipFile(_)
-            | FileSystemTools::ZipDirectory(_) => true,
+            | FileSystemTools::EditFile(_) => true,
             FileSystemTools::ReadTextFile(_)
             | FileSystemTools::DirectoryTree(_)
             | FileSystemTools::GetFileInfo(_)

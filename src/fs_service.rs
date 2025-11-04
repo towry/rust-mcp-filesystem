@@ -1,4 +1,3 @@
-mod archive;
 mod core;
 mod io;
 mod search;
