@@ -7,12 +7,13 @@ use std::fmt::Write;
 #[mcp_tool(
     name = "search_files_content",
     title="Search files content",
-    description = concat!("Searches for text or regex patterns in the content of files matching matching a GLOB pattern.",
-                          "Returns detailed matches with file path, line number, column number and a preview of matched text.",
-                          "By default, it performs a literal text search; if the 'is_regex' parameter is set to true, it performs a regular expression (regex) search instead.",
-                          "Optional 'min_bytes' and 'max_bytes' arguments can be used to filter files by size, ",
-                          "ensuring that only files within the specified byte range are included in the search. ",
-                          "Ideal for finding specific code, comments, or text when you don’t know their exact location."),
+    description = concat!("Searches for text or regex patterns in the content of files. ",
+                          "The 'pattern' parameter uses GLOB syntax to filter which files to search (e.g., '*.rs' for Rust files). ",
+                          "The 'query' parameter is the search term: literal text by default, or regex when 'is_regex' is true. ",
+                          "Note: 'query' does NOT use glob syntax - use standard regex patterns like '.*match' instead of '*match'. ",
+                          "Returns detailed matches with file path, line number, column number and a preview of matched text. ",
+                          "Optional 'min_bytes' and 'max_bytes' arguments can be used to filter files by size. ",
+                          "Ideal for finding specific code, comments, or text when you don't know their exact location."),
     destructive_hint = false,
     idempotent_hint = false,
     open_world_hint = false,
@@ -24,11 +25,11 @@ use std::fmt::Write;
 pub struct SearchFilesContent {
     /// The file or directory path to search in.
     pub path: String,
-    /// The file glob pattern to match (e.g., "*.rs").
+    /// File glob pattern to filter which files to search (e.g., "*.rs", "*.{js,ts}"). This does NOT affect the content search.
     pub pattern: String,
-    /// Text or regex pattern to find in file contents (e.g., 'TODO' or '^function\\s+').
+    /// Search term to find in file contents. Use literal text (default) or regex patterns when is_regex=true (e.g., 'TODO', '^function\\s+', '.*Error'). NOT glob syntax.
     pub query: String,
-    /// Whether the query is a regular expression. If false, the query as plain text. (Default : false)
+    /// Whether the query is a regular expression. If false, treats query as plain text. If true, treats query as regex pattern. (Default: false)
     pub is_regex: Option<bool>,
     #[serde(rename = "excludePatterns")]
     /// Optional list of patterns to exclude from the search.
