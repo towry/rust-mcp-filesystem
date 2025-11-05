@@ -1,7 +1,7 @@
 # Capabilities
 
 <!-- mcp-discovery-render -->
-## rust-mcp-filesystem 0.3.10
+## rust-mcp-filesystem 0.3.11
 | 🟢 Tools (20) | <span style="opacity:0.6">🔴 Prompts</span> | <span style="opacity:0.6">🔴 Resources</span> | <span style="opacity:0.6">🔴 Logging</span> | <span style="opacity:0.6">🔴 Completions</span> | <span style="opacity:0.6">🔴 Experimental</span> |
 | --- | --- | --- | --- | --- | --- |
 
@@ -265,7 +265,7 @@
             <td>
                 <code><b>search_files_content</b></code>
             </td>
-            <td>Searches for text or regex patterns in the content of files matching matching a GLOB pattern.Returns detailed matches with file path, line number, column number and a preview of matched text.By default, it performs a literal text search; if the <code>is_regex</code> parameter is set to true, it performs a regular expression (regex) search instead.Optional <code>min_bytes</code> and <code>max_bytes</code> arguments can be used to filter files by size, ensuring that only files within the specified byte range are included in the search. Ideal for finding specific code, comments, or text when you don’t know their exact location.</td>
+            <td>Searches for text or regex patterns in the content of files. The <code>pattern</code> parameter uses GLOB syntax to filter which files to search (e.g., '*.rs' for Rust files). The <code>query</code> parameter is the search term: literal text by default, or regex when <code>is_regex</code> is true. Note: <code>query</code> does NOT use glob syntax - use standard regex patterns like '.*match' instead of '*match'. Returns detailed matches with file path, line number, column number and a preview of matched text. Optional <code>min_bytes</code> and <code>max_bytes</code> arguments can be used to filter files by size. Ideal for finding specific code, comments, or text when you don't know their exact location.</td>
             <td>
                 <ul>
                     <li> <code>excludePatterns</code> : string [ ]<br /></li>
