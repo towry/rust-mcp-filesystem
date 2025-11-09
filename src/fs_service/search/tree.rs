@@ -9,7 +9,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use walkdir::WalkDir;
+use ignore::WalkBuilder;
 
 impl FileSystemService {
     /// Generates a JSON representation of a directory tree starting at the given path.
@@ -47,11 +47,16 @@ impl FileSystemService {
         let mut reached_max_depth = false;
 
         if max_depth != Some(0) {
-            for entry in WalkDir::new(valid_path)
-                .min_depth(1)
-                .max_depth(1)
+            for entry in WalkBuilder::new(valid_path)
                 .follow_links(true)
-                .into_iter()
+                .git_ignore(true)
+                .git_global(true)
+                .git_exclude(true)
+                .ignore(true)
+                .hidden(true)
+                .parents(true)
+                .max_depth(Some(1))
+                .build()
                 .filter_map(|e| e.ok())
             {
                 let child_path = entry.path();
@@ -187,10 +192,16 @@ impl FileSystemService {
 
         // Check each directory for emptiness
         for entry in walker {
-            let is_empty = WalkDir::new(entry.path())
-                .into_iter()
+            let is_empty = WalkBuilder::new(entry.path())
+                .git_ignore(true)
+                .git_global(true)
+                .git_exclude(true)
+                .ignore(true)
+                .hidden(true)
+                .parents(true)
+                .build()
                 .filter_map(|e| e.ok())
-                .all(|e| !e.file_type().is_file() || is_system_metadata_file(e.file_name())); // Directory is empty if no files are found in it or subdirs, ".DS_Store" will be ignores on Mac
+                .all(|e| !e.file_type().map_or(false, |ft| ft.is_file()) || is_system_metadata_file(e.file_name())); // Directory is empty if no files are found in it or subdirs, ".DS_Store" will be ignores on Mac
 
             if is_empty && let Some(path_str) = entry.path().to_str() {
                 empty_dirs.push(path_str.to_string());

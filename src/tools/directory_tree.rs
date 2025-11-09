@@ -9,10 +9,8 @@ use crate::fs_service::FileSystemService;
 #[mcp_tool(
     name = "directory_tree",
     title= "Directory tree",
-    description = concat!("Get a recursive tree view of files and directories as a JSON structure. ",
-    "Each entry includes 'name', 'type' (file/directory), and 'children' for directories. ",
-    "Files have no children array, while directories always have a children array (which may be empty). ",
-    "If the 'max_depth' parameter is provided, the traversal will be limited to the specified depth. ",
+    description = concat!("Get a recursive tree view of files and directories as a JSON structure, respect gitignore rules. ",
+    "Use `max_depth` to limit dir depth, recommend default to 2 levels",
     "As a result, the returned directory structure may be incomplete or provide a skewed representation of the full directory tree, since deeper-level files and subdirectories beyond the specified depth will be excluded. ",
     "The output is formatted with 2-space indentation for readability. Only works within allowed directories."),
     destructive_hint = false,
@@ -39,7 +37,7 @@ impl DirectoryTree {
         let (entries, reached_max_depth) = context
             .directory_tree(
                 params.path,
-                params.max_depth.map(|v| v as usize),
+                params.max_depth.map(|v| v as usize).or(Some(2)),
                 None,
                 &mut entry_counter,
                 allowed_directories,
