@@ -1,7 +1,7 @@
 # Capabilities
 
 <!-- mcp-discovery-render -->
-## rust-mcp-filesystem 0.3.11
+## rust-mcp-filesystem 0.3.12
 | 🟢 Tools (20) | <span style="opacity:0.6">🔴 Prompts</span> | <span style="opacity:0.6">🔴 Resources</span> | <span style="opacity:0.6">🔴 Logging</span> | <span style="opacity:0.6">🔴 Completions</span> | <span style="opacity:0.6">🔴 Experimental</span> |
 | --- | --- | --- | --- | --- | --- |
 
@@ -47,7 +47,7 @@
             <td>
                 <code><b>directory_tree</b></code>
             </td>
-            <td>Get a recursive tree view of files and directories as a JSON structure. Each entry includes <code>name</code>, <code>type</code> (file/directory), and <code>children</code> for directories. Files have no children array, while directories always have a children array (which may be empty). If the <code>max_depth</code> parameter is provided, the traversal will be limited to the specified depth. As a result, the returned directory structure may be incomplete or provide a skewed representation of the full directory tree, since deeper-level files and subdirectories beyond the specified depth will be excluded. The output is formatted with 2-space indentation for readability. Only works within allowed directories.</td>
+            <td>Get a recursive tree view of files and directories as a JSON structure, respect gitignore rules. Use <code>max_depth</code> to limit dir depth, recommend default to 2 levelsAs a result, the returned directory structure may be incomplete or provide a skewed representation of the full directory tree, since deeper-level files and subdirectories beyond the specified depth will be excluded. The output is formatted with 2-space indentation for readability. Only works within allowed directories.</td>
             <td>
                 <ul>
                     <li> <code>max_depth</code> : integer<br /></li>
