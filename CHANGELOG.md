@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.12](https://github.com/towry/rust-mcp-filesystem/compare/v0.3.11...v0.3.12) (2025-11-09)
+
+
+### 🐛 Bug Fixes
+
+* **search:** Replace walkdir with ignore crate to respect gitignore files ([1195d09](https://github.com/towry/rust-mcp-filesystem/commit/1195d0961ad030d1fe989fb1098f42ac31425f01))
+
 ## [0.3.11](https://github.com/towry/rust-mcp-filesystem/compare/v0.3.10...v0.3.11) (2025-11-05)
 
 
