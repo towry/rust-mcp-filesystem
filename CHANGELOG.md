@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.13](https://github.com/towry/rust-mcp-filesystem/compare/v0.3.12...v0.3.13) (2025-11-09)
+
+
+### 🐛 Bug Fixes
+
+* **search:** Prevent directory tree from listing itself ([cd9fad3](https://github.com/towry/rust-mcp-filesystem/commit/cd9fad31b454929c321175ebba8e0e38aba9abf3))
+
 ## [0.3.12](https://github.com/towry/rust-mcp-filesystem/compare/v0.3.11...v0.3.12) (2025-11-09)
 
 
