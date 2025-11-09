@@ -15,9 +15,9 @@ impl FileSystemService {
     /// Generates a JSON representation of a directory tree starting at the given path.
     ///
     /// This function recursively builds a JSON array object representing the directory structure,
-    /// where each entry includes a `name` (file or directory name), `type` ("file" or "directory"),
-    /// and for directories, a `children` array containing their contents. Files do not have a
-    /// `children` field.
+    /// where each entry includes a `n` (file or directory name with `/` suffix for directories),
+    /// and for directories, a `c` array containing their contents. Files do not have a `c` field.
+    /// The output uses compact format to reduce token consumption.
     ///
     /// The function supports optional constraints to limit the tree size:
     /// - `max_depth`: Limits the depth of directory traversal.
@@ -47,8 +47,8 @@ impl FileSystemService {
         let mut reached_max_depth = false;
 
         if max_depth != Some(0) {
-            for entry in WalkBuilder::new(valid_path)
-                .follow_links(true)
+            for entry in WalkBuilder::new(&valid_path)
+                .follow_links(false)
                 .git_ignore(true)
                 .git_global(true)
                 .git_exclude(true)
@@ -60,9 +60,17 @@ impl FileSystemService {
                 .filter_map(|e| e.ok())
             {
                 let child_path = entry.path();
-                let metadata = fs::metadata(child_path)?;
 
-                let entry_name = child_path
+                // Skip the root directory itself
+                if child_path == valid_path.as_path() {
+                    continue;
+                }
+
+                // Use symlink_metadata to get info about symlink itself, not its target
+                let metadata = fs::symlink_metadata(child_path)?;
+                let file_type = metadata.file_type();
+
+                let mut entry_name = child_path
                     .file_name()
                     .ok_or(ServiceError::FromString("Invalid path".to_string()))?
                     .to_string_lossy()
@@ -78,12 +86,22 @@ impl FileSystemService {
                     continue; // Skip this entry but continue processing others
                 }
 
+                let is_symlink = file_type.is_symlink();
+                let is_dir = file_type.is_dir();
+
+                // Add suffix: @ for symlink, / for directory
+                if is_symlink {
+                    entry_name.push('@');
+                } else if is_dir {
+                    entry_name.push('/');
+                }
+
                 let mut json_entry = json!({
-                    "name": entry_name,
-                    "type": if metadata.is_dir() { "directory" } else { "file" }
+                    "n": entry_name
                 });
 
-                if metadata.is_dir() {
+                // Only recurse into real directories, not symlinks
+                if is_dir && !is_symlink {
                     let next_depth = max_depth.map(|d| d - 1);
                     let (child_children, child_reached_max_depth) = self.directory_tree(
                         child_path,
@@ -95,7 +113,7 @@ impl FileSystemService {
                     json_entry
                         .as_object_mut()
                         .unwrap()
-                        .insert("children".to_string(), child_children);
+                        .insert("c".to_string(), child_children);
                     reached_max_depth |= child_reached_max_depth;
                 }
                 children.push(json_entry);

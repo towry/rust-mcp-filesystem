@@ -10,9 +10,9 @@ use crate::fs_service::FileSystemService;
     name = "directory_tree",
     title= "Directory tree",
     description = concat!("Get a recursive tree view of files and directories as a JSON structure, respect gitignore rules. ",
-    "Use `max_depth` to limit dir depth, recommend default to 2 levels",
+    "Use `max_depth` to limit dir depth, recommend default to 2 levels. ",
     "As a result, the returned directory structure may be incomplete or provide a skewed representation of the full directory tree, since deeper-level files and subdirectories beyond the specified depth will be excluded. ",
-    "The output is formatted with 2-space indentation for readability. Only works within allowed directories."),
+    "Output format: JSON array with objects containing 'n' (name, dirs end with /), 'c' (children array for dirs). Compact format for token efficiency. Only works within allowed directories."),
     destructive_hint = false,
     idempotent_hint = false,
     open_world_hint = false,
@@ -50,7 +50,7 @@ impl DirectoryTree {
             )));
         }
 
-        let json_str = serde_json::to_string_pretty(&json!(entries)).map_err(CallToolError::new)?;
+        let json_str = serde_json::to_string(&json!(entries)).map_err(CallToolError::new)?;
 
         // Include meta flag to denote that max depth was hit; some files and directories might be omitted
         let meta = if reached_max_depth {
